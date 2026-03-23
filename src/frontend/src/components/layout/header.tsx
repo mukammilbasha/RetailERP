@@ -233,7 +233,29 @@ function SearchModal({
 function UserDropdown() {
   const { user, logout } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load avatar from localStorage when user changes
+  useEffect(() => {
+    if (user?.userId) {
+      const stored = localStorage.getItem(`avatar_${user.userId}`);
+      if (stored) setAvatarSrc(stored);
+    }
+  }, [user?.userId]);
+
+  // Listen for storage events so the header updates when a photo is saved
+  // from the profile page within the same tab (we fire a synthetic storage event)
+  useEffect(() => {
+    const handler = () => {
+      if (user?.userId) {
+        const stored = localStorage.getItem(`avatar_${user.userId}`);
+        setAvatarSrc(stored || null);
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, [user?.userId]);
 
   // Close on outside click
   useEffect(() => {
@@ -279,9 +301,17 @@ function UserDropdown() {
         aria-haspopup="true"
         aria-label="User menu"
       >
-        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
-          {initials}
-        </div>
+        {avatarSrc ? (
+          <img
+            src={avatarSrc}
+            alt={initials}
+            className="w-8 h-8 rounded-full object-cover"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+            {initials}
+          </div>
+        )}
       </button>
 
       {/* Dropdown */}
@@ -296,9 +326,17 @@ function UserDropdown() {
           {/* User info header */}
           <div className="px-4 py-3.5 border-b border-border">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
-                {initials}
-              </div>
+              {avatarSrc ? (
+                <img
+                  src={avatarSrc}
+                  alt={initials}
+                  className="w-10 h-10 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
+                  {initials}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">
                   {user?.fullName || "User"}

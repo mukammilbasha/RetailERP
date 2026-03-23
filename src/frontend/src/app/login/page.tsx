@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 import { Mail, Lock, Eye, EyeOff, Loader2, X } from "lucide-react";
 
@@ -475,13 +476,13 @@ export default function LoginPage() {
                     Remember me
                   </span>
                 </label>
-                <button
-                  type="button"
+                <Link
+                  href="/forgot-password"
                   className="text-sm font-medium hover:underline transition-colors"
                   style={{ color: "hsl(var(--primary))" }}
                 >
                   Forgot password?
-                </button>
+                </Link>
               </div>
 
               {/* Submit */}

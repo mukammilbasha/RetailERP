@@ -17,6 +17,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => void;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -44,6 +45,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem("refreshToken");
     set({ user: null, isAuthenticated: false, isLoading: false });
     window.location.href = "/login";
+  },
+
+  updateUser: (updates: Partial<User>) => {
+    set((state) => ({
+      user: state.user ? { ...state.user, ...updates } : state.user,
+    }));
   },
 
   checkAuth: () => {
