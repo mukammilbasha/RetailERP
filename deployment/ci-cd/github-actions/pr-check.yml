@@ -1,0 +1,138 @@
+name: RetailERP — PR Validation
+
+on:
+  pull_request:
+    branches: [main, develop, release/*, hotfix/*]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Lint & Build Backend ──────────────────────────────────────
+  backend-check:
+    name: Backend — Build & Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    - name: Restore
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    - name: Test
+      run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"
+    - name: Upload coverage
+      uses: codecov/codecov-action@v4
+      if: always()
+
+  # ── Lint & Build Frontend ─────────────────────────────────────
+  frontend-check:
+    name: Frontend — Build & Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: src/frontend/package-lock.json
+    - run: npm ci
+    - run: npm run lint
+    - run: npm run build
+      env:
+        NEXT_PUBLIC_API_URL: http://localhost:5000
+        NEXT_TELEMETRY_DISABLED: 1
+
+  # ── Docker build dry-run ──────────────────────────────────────
+  docker-build-check:
+    name: Docker — Build Validation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - {name: auth,       file: docker/Dockerfile.api, args: "SERVICE_NAME=Auth\nSERVICE_DIR=auth"}
+          - {name: product,    file: docker/Dockerfile.api, args: "SERVICE_NAME=Product\nSERVICE_DIR=product"}
+          - {name: inventory,  file: docker/Dockerfile.api, args: "SERVICE_NAME=Inventory\nSERVICE_DIR=inventory"}
+          - {name: order,      file: docker/Dockerfile.api, args: "SERVICE_NAME=Order\nSERVICE_DIR=order"}
+          - {name: billing,    file: docker/Dockerfile.api, args: "SERVICE_NAME=Billing\nSERVICE_DIR=billing"}
+          - {name: gateway,    file: docker/Dockerfile.gateway, args: ""}
+          - {name: frontend,   file: docker/Dockerfile.frontend, args: "NEXT_PUBLIC_API_URL=http://localhost:5000"}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build ${{ matrix.service.name }}
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ${{ matrix.service.file }}
+        build-args: ${{ matrix.service.args }}
+        push: false
+        cache-from: type=gha,scope=${{ matrix.service.name }}
+        cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
+
+  # ── Security — SAST with CodeQL ──────────────────────────────
+  codeql:
+    name: Security — CodeQL SAST
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    strategy:
+      matrix:
+        language: [csharp, javascript]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+    - uses: github/codeql-action/autobuild@v3
+    - uses: github/codeql-action/analyze@v3
+
+  # ── Security — Dependency audit ───────────────────────────────
+  dependency-audit:
+    name: Security — Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: .NET audit
+      run: dotnet list package --vulnerable --include-transitive 2>&1 | tee dotnet-audit.txt
+      continue-on-error: true
+    - name: npm audit
+      working-directory: src/frontend
+      run: npm audit --audit-level=high
+      continue-on-error: true
+    - name: Upload audit results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-audit-results
+        path: |
+          dotnet-audit.txt
+          src/frontend/npm-audit.json
+
+  # ── PR Comment with checks summary ───────────────────────────
+  pr-summary:
+    name: PR Check Summary
+    runs-on: ubuntu-latest
+    needs: [backend-check, frontend-check, docker-build-check]
+    if: always()
+    steps:
+    - name: Comment on PR
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        message: |
+          ## RetailERP PR Check Results
+
+          | Check | Status |
+          |-------|--------|
+          | Backend Build & Test | ${{ needs.backend-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |
+          | Frontend Build & Lint | ${{ needs.frontend-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |
+          | Docker Build Validation | ${{ needs.docker-build-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |
+
+          Commit: `${{ github.sha }}`

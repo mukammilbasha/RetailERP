@@ -1,0 +1,342 @@
+# ============================================================
+# RetailERP — Azure DevOps Pipeline
+# Stages: Build → Test → Push → Dev → QA → UAT → Prod
+# ============================================================
+
+trigger:
+  branches:
+    include:
+      - main
+      - 'release/*'
+      - 'hotfix/*'
+  tags:
+    include:
+      - 'v*'
+
+variables:
+  - group: retailerp-secrets          # Contains: ACR_PASSWORD, SQL_ADMIN_PASSWORD, JWT_SECRET, SLACK_WEBHOOK
+  - name: containerRegistry
+    value: 'retailerpacr.azurecr.io'
+  - name: imageTag
+    value: '$(Build.BuildId)'
+  - name: vmImage
+    value: 'ubuntu-latest'
+
+# ── Stage 1: Build (all services in parallel) ─────────────────
+stages:
+- stage: Build
+  displayName: 'Build All Services'
+  jobs:
+  - job: BuildBackend
+    displayName: 'Build Backend APIs'
+    pool:
+      vmImage: $(vmImage)
+    strategy:
+      parallel: 7
+      matrix:
+        Auth:
+          serviceName: auth
+          serviceTitle: Auth
+        Product:
+          serviceName: product
+          serviceTitle: Product
+        Inventory:
+          serviceName: inventory
+          serviceTitle: Inventory
+        Order:
+          serviceName: order
+          serviceTitle: Order
+        Production:
+          serviceName: production
+          serviceTitle: Production
+        Billing:
+          serviceName: billing
+          serviceTitle: Billing
+        Reporting:
+          serviceName: reporting
+          serviceTitle: Reporting
+
+    steps:
+    - task: Docker@2
+      displayName: 'Build & Push $(serviceTitle)'
+      inputs:
+        command: buildAndPush
+        containerRegistry: 'RetailERP-ACR'
+        repository: 'retailerp/$(serviceName)'
+        dockerfile: 'docker/Dockerfile.api'
+        buildContext: '.'
+        arguments: |
+          --build-arg SERVICE_NAME=$(serviceTitle)
+          --build-arg SERVICE_DIR=$(serviceName)
+        tags: |
+          $(imageTag)
+          latest-$(Build.SourceBranchName)
+
+    - task: trivy@1
+      displayName: 'Security Scan $(serviceTitle)'
+      inputs:
+        image: '$(containerRegistry)/retailerp/$(serviceName):$(imageTag)'
+        exitCode: 0    # Report but don't fail
+
+  - job: BuildGateway
+    displayName: 'Build API Gateway'
+    pool:
+      vmImage: $(vmImage)
+    steps:
+    - task: Docker@2
+      inputs:
+        command: buildAndPush
+        containerRegistry: 'RetailERP-ACR'
+        repository: 'retailerp/gateway'
+        dockerfile: 'docker/Dockerfile.gateway'
+        buildContext: '.'
+        tags: |
+          $(imageTag)
+          latest-$(Build.SourceBranchName)
+
+  - job: BuildFrontend
+    displayName: 'Build Frontend'
+    pool:
+      vmImage: $(vmImage)
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '20.x'
+    - script: |
+        cd src/frontend
+        npm ci
+        npm run lint
+        npm run build
+      displayName: 'Lint & Build Frontend'
+      env:
+        NEXT_PUBLIC_API_URL: $(FRONTEND_API_URL)
+        NEXT_TELEMETRY_DISABLED: '1'
+    - task: Docker@2
+      inputs:
+        command: buildAndPush
+        containerRegistry: 'RetailERP-ACR'
+        repository: 'retailerp/frontend'
+        dockerfile: 'docker/Dockerfile.frontend'
+        buildContext: 'src/frontend'
+        tags: |
+          $(imageTag)
+          latest-$(Build.SourceBranchName)
+
+  - job: BackendTests
+    displayName: 'Backend Unit Tests'
+    pool:
+      vmImage: $(vmImage)
+    steps:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '8.0.x'
+    - script: |
+        dotnet restore
+        dotnet build --no-restore --configuration Release
+        dotnet test --no-build --configuration Release \
+          --logger trx --results-directory $(Agent.TempDirectory)/TestResults \
+          --collect:"XPlat Code Coverage"
+      displayName: 'Run Tests'
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(Agent.TempDirectory)/TestResults/*.trx'
+    - task: PublishCodeCoverageResults@2
+      inputs:
+        summaryFileLocation: '$(Agent.TempDirectory)/TestResults/**/coverage.cobertura.xml'
+
+# ── Stage 2: Deploy Dev (auto) ────────────────────────────────
+- stage: DeployDev
+  displayName: 'Deploy → Dev'
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  variables:
+    environment: dev
+    aksResourceGroup: rg-retailerp-dev
+    aksClusterName: retailerp-dev-aks
+    k8sNamespace: retailerp-dev
+  jobs:
+  - deployment: DeployToAKSDev
+    displayName: 'Deploy to AKS Dev'
+    pool:
+      vmImage: $(vmImage)
+    environment: 'retailerp-dev'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureCLI@2
+            displayName: 'Get AKS Credentials'
+            inputs:
+              azureSubscription: 'RetailERP-Azure'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az aks get-credentials \
+                  --resource-group $(aksResourceGroup) \
+                  --name $(aksClusterName) \
+                  --overwrite-existing
+
+          - task: KubernetesManifest@1
+            displayName: 'Apply Kubernetes Manifests'
+            inputs:
+              action: deploy
+              namespace: $(k8sNamespace)
+              manifests: |
+                deployment/kubernetes/configmap.yaml
+                deployment/kubernetes/deployments/all-services.yaml
+              containers: |
+                $(containerRegistry)/retailerp/gateway:$(imageTag)
+                $(containerRegistry)/retailerp/auth:$(imageTag)
+                $(containerRegistry)/retailerp/product:$(imageTag)
+                $(containerRegistry)/retailerp/inventory:$(imageTag)
+                $(containerRegistry)/retailerp/order:$(imageTag)
+                $(containerRegistry)/retailerp/billing:$(imageTag)
+                $(containerRegistry)/retailerp/frontend:$(imageTag)
+
+          - script: |
+              sleep 20
+              bash deployment/tests/smoke/smoke-tests.sh \
+                --env dev --base-url http://retailerp-dev.retailerp.internal
+            displayName: 'Smoke Tests'
+
+# ── Stage 3: Deploy QA (auto after Dev) ──────────────────────
+- stage: DeployQA
+  displayName: 'Deploy → QA'
+  dependsOn: DeployDev
+  condition: succeeded()
+  variables:
+    environment: qa
+    aksResourceGroup: rg-retailerp-qa
+    aksClusterName: retailerp-qa-aks
+    k8sNamespace: retailerp-qa
+  jobs:
+  - deployment: DeployToAKSQA
+    displayName: 'Deploy to AKS QA'
+    pool:
+      vmImage: $(vmImage)
+    environment: 'retailerp-qa'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'RetailERP-Azure'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: az aks get-credentials --resource-group $(aksResourceGroup) --name $(aksClusterName) --overwrite-existing
+          - task: KubernetesManifest@1
+            inputs:
+              action: deploy
+              namespace: $(k8sNamespace)
+              manifests: |
+                deployment/kubernetes/configmap.yaml
+                deployment/kubernetes/deployments/all-services.yaml
+              containers: |
+                $(containerRegistry)/retailerp/gateway:$(imageTag)
+                $(containerRegistry)/retailerp/auth:$(imageTag)
+                $(containerRegistry)/retailerp/frontend:$(imageTag)
+          - script: bash deployment/tests/smoke/smoke-tests.sh --env qa
+            displayName: 'Smoke Tests'
+
+# ── Stage 4: Deploy UAT (manual approval) ────────────────────
+- stage: DeployUAT
+  displayName: 'Deploy → UAT'
+  dependsOn: DeployQA
+  condition: and(succeeded(), or(startsWith(variables['Build.SourceBranch'], 'refs/tags/'), startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+  variables:
+    environment: uat
+    aksResourceGroup: rg-retailerp-uat
+    aksClusterName: retailerp-uat-aks
+    k8sNamespace: retailerp-uat
+  jobs:
+  - job: WaitForApproval
+    displayName: 'Wait for UAT Approval'
+    pool: server
+    timeoutInMinutes: 1440   # 24 hours to approve
+    steps:
+    - task: ManualValidation@0
+      inputs:
+        instructions: 'Review QA test results and approve UAT deployment for version $(imageTag)'
+        onTimeout: 'reject'
+
+  - deployment: DeployToAKSUAT
+    displayName: 'Deploy to AKS UAT'
+    dependsOn: WaitForApproval
+    pool:
+      vmImage: $(vmImage)
+    environment: 'retailerp-uat'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'RetailERP-Azure'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: az aks get-credentials --resource-group $(aksResourceGroup) --name $(aksClusterName) --overwrite-existing
+          - task: KubernetesManifest@1
+            inputs:
+              action: deploy
+              namespace: $(k8sNamespace)
+              manifests: deployment/kubernetes/deployments/all-services.yaml
+          - script: bash deployment/tests/smoke/smoke-tests.sh --env uat
+            displayName: 'UAT Smoke Tests'
+
+# ── Stage 5: Deploy Production (manual approval + tag) ────────
+- stage: DeployProd
+  displayName: 'Deploy → Production'
+  dependsOn: DeployUAT
+  condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
+  variables:
+    environment: prod
+    aksResourceGroup: rg-retailerp-prod
+    aksClusterName: retailerp-prod-aks
+    k8sNamespace: retailerp-prod
+  jobs:
+  - job: WaitForProdApproval
+    displayName: 'Wait for Production Approval'
+    pool: server
+    timeoutInMinutes: 2880
+    steps:
+    - task: ManualValidation@0
+      inputs:
+        instructions: 'PRODUCTION deployment of version $(imageTag). Ensure UAT sign-off is complete.'
+        onTimeout: 'reject'
+
+  - deployment: DeployToAKSProd
+    displayName: 'Deploy to AKS Production'
+    dependsOn: WaitForProdApproval
+    pool:
+      vmImage: $(vmImage)
+    environment: 'retailerp-prod'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'RetailERP-Azure'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: az aks get-credentials --resource-group $(aksResourceGroup) --name $(aksClusterName) --overwrite-existing
+          - task: KubernetesManifest@1
+            inputs:
+              action: deploy
+              namespace: $(k8sNamespace)
+              manifests: deployment/kubernetes/deployments/all-services.yaml
+          - script: |
+              sleep 30
+              bash deployment/tests/smoke/smoke-tests.sh --env prod \
+                --base-url https://retailerp.com
+            displayName: 'Production Smoke Tests'
+          - task: InvokeRestAPI@1
+            displayName: 'Notify Slack — Production Deploy'
+            inputs:
+              connectionType: 'connectedServiceName'
+              serviceConnection: 'RetailERP-Slack'
+              method: 'POST'
+              body: '{"text":"✅ RetailERP $(imageTag) deployed to production!"}'

@@ -1,0 +1,60 @@
+{
+  "dev": {
+    "baseUrl": "http://localhost",
+    "gatewayUrl": "http://localhost:5000",
+    "authUrl": "http://localhost:5001",
+    "productUrl": "http://localhost:5002",
+    "inventoryUrl": "http://localhost:5003",
+    "orderUrl": "http://localhost:5004",
+    "productionUrl": "http://localhost:5005",
+    "billingUrl": "http://localhost:5006",
+    "reportingUrl": "http://localhost:5007",
+    "frontendUrl": "http://localhost:3003",
+    "wsUrl": "ws://localhost:5000/ws",
+    "sqlHost": "localhost",
+    "sqlPort": 1434,
+    "redisHost": "localhost",
+    "redisPort": 6380,
+    "mqttHost": "localhost",
+    "mqttPort": 1883
+  },
+  "qa": {
+    "baseUrl": "http://retailerp-qa.internal",
+    "gatewayUrl": "http://retailerp-qa.internal:5000",
+    "authUrl": "http://retailerp-qa.internal:5001",
+    "frontendUrl": "http://retailerp-qa.internal:3003",
+    "wsUrl": "ws://retailerp-qa.internal:5000/ws",
+    "sqlHost": "sqlserver-qa.internal",
+    "sqlPort": 1433,
+    "redisHost": "redis-qa.internal",
+    "redisPort": 6379,
+    "mqttHost": "mqtt-qa.internal",
+    "mqttPort": 1883
+  },
+  "uat": {
+    "baseUrl": "https://uat.retailerp.com",
+    "gatewayUrl": "https://api-uat.retailerp.com",
+    "authUrl": "https://auth-uat.retailerp.com",
+    "frontendUrl": "https://uat.retailerp.com",
+    "wsUrl": "wss://api-uat.retailerp.com/ws",
+    "sqlHost": "sqlserver-uat.retailerp.internal",
+    "sqlPort": 1433,
+    "redisHost": "redis-uat.retailerp.internal",
+    "redisPort": 6379,
+    "mqttHost": "mqtt-uat.retailerp.internal",
+    "mqttPort": 8883
+  },
+  "production": {
+    "baseUrl": "https://retailerp.com",
+    "gatewayUrl": "https://api.retailerp.com",
+    "authUrl": "https://auth.retailerp.com",
+    "frontendUrl": "https://retailerp.com",
+    "wsUrl": "wss://api.retailerp.com/ws",
+    "sqlHost": "sqlserver-prod.retailerp.internal",
+    "sqlPort": 1433,
+    "redisHost": "redis-prod.retailerp.internal",
+    "redisPort": 6379,
+    "mqttHost": "mqtt-prod.retailerp.internal",
+    "mqttPort": 8883
+  }
+}

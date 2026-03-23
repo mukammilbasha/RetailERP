@@ -1,0 +1,12 @@
+apiVersion: 1
+providers:
+  - name: RetailERP
+    orgId: 1
+    folder: RetailERP
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true

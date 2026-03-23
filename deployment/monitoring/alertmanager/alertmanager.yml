@@ -1,0 +1,59 @@
+global:
+  resolve_timeout: 5m
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+
+route:
+  receiver: slack-default
+  group_by: [alertname, service, environment]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    # Critical alerts → PagerDuty + Slack
+    - matchers: [severity="critical"]
+      receiver: pagerduty-critical
+      continue: true
+      group_wait: 0s
+      repeat_interval: 4h
+
+    # Warning alerts → Slack warnings channel
+    - matchers: [severity="warning"]
+      receiver: slack-warnings
+      repeat_interval: 24h
+
+receivers:
+  - name: slack-default
+    slack_configs:
+      - channel: '#retailerp-alerts'
+        title: '{{ .CommonLabels.alertname }} — {{ .CommonLabels.service }}'
+        text: |
+          {{ range .Alerts }}
+          *Status:* {{ .Status }}
+          *Service:* {{ .Labels.service }}
+          *Severity:* {{ .Labels.severity }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+        send_resolved: true
+        color: '{{ if eq .Status "resolved" }}good{{ else if eq .CommonLabels.severity "critical" }}danger{{ else }}warning{{ end }}'
+
+  - name: slack-warnings
+    slack_configs:
+      - channel: '#retailerp-warnings'
+        title: '⚠ {{ .CommonLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+
+  - name: pagerduty-critical
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        description: '{{ .CommonLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        severity: '{{ .CommonLabels.severity }}'
+        details:
+          service: '{{ .CommonLabels.service }}'
+          environment: '{{ .CommonLabels.environment }}'
+
+inhibit_rules:
+  # Suppress warning if critical is firing for same service
+  - source_matchers: [severity="critical"]
+    target_matchers: [severity="warning"]
+    equal: [service]

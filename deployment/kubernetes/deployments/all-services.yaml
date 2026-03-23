@@ -1,0 +1,605 @@
+# ============================================================
+# RetailERP — Kubernetes Deployments for All Microservices
+# Namespace: retailerp-${ENV}  (substitute with kustomize or envsubst)
+# IMAGE_REGISTRY: your-registry.example.com/retailerp
+# VERSION: image tag
+# ============================================================
+
+# ─────────────────────────────────────────────────────────────
+# API Gateway
+# ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: retailerp-prod
+  labels:
+    app: gateway
+    app.kubernetes.io/part-of: retailerp
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0        # Zero-downtime
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: gateway
+        image: ${IMAGE_REGISTRY}/gateway:${VERSION}
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: retailerp-config
+        - secretRef:
+            name: retailerp-secrets
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: gateway
+            topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: retailerp-prod
+spec:
+  selector:
+    app: gateway
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway-pdb
+  namespace: retailerp-prod
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: gateway
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway-hpa
+  namespace: retailerp-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+# ─────────────────────────────────────────────────────────────
+# Auth API
+# ─────────────────────────────────────────────────────────────
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-api
+  namespace: retailerp-prod
+  labels:
+    app: auth-api
+    app.kubernetes.io/part-of: retailerp
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: auth-api
+  template:
+    metadata:
+      labels:
+        app: auth-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: auth-api
+        image: ${IMAGE_REGISTRY}/auth-api:${VERSION}
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: retailerp-config
+        - secretRef:
+            name: retailerp-secrets
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: auth-api
+            topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-api-service
+  namespace: retailerp-prod
+spec:
+  selector:
+    app: auth-api
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-api-pdb
+  namespace: retailerp-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: auth-api
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-api-hpa
+  namespace: retailerp-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+# ─────────────────────────────────────────────────────────────
+# Product API
+# ─────────────────────────────────────────────────────────────
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-api
+  namespace: retailerp-prod
+  labels:
+    app: product-api
+    app.kubernetes.io/part-of: retailerp
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels:
+      app: product-api
+  template:
+    metadata:
+      labels:
+        app: product-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: product-api
+        image: ${IMAGE_REGISTRY}/product-api:${VERSION}
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef: {name: retailerp-config}
+        - secretRef: {name: retailerp-secrets}
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+          limits: {cpu: 500m, memory: 512Mi}
+        livenessProbe:
+          httpGet: {path: /health, port: 8080}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet: {path: /health, port: 8080}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-api-service
+  namespace: retailerp-prod
+spec:
+  selector: {app: product-api}
+  ports: [{port: 80, targetPort: 8080}]
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: product-api-hpa
+  namespace: retailerp-prod
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: product-api}
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}
+
+# ─────────────────────────────────────────────────────────────
+# Inventory API
+# ─────────────────────────────────────────────────────────────
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-api
+  namespace: retailerp-prod
+  labels:
+    app: inventory-api
+    app.kubernetes.io/part-of: retailerp
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels:
+      app: inventory-api
+  template:
+    metadata:
+      labels: {app: inventory-api}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: inventory-api
+        image: ${IMAGE_REGISTRY}/inventory-api:${VERSION}
+        ports: [{containerPort: 8080}]
+        envFrom:
+        - configMapRef: {name: retailerp-config}
+        - secretRef: {name: retailerp-secrets}
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+          limits: {cpu: 500m, memory: 512Mi}
+        livenessProbe:
+          httpGet: {path: /health, port: 8080}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet: {path: /health, port: 8080}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-api-service
+  namespace: retailerp-prod
+spec:
+  selector: {app: inventory-api}
+  ports: [{port: 80, targetPort: 8080}]
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: inventory-api-hpa
+  namespace: retailerp-prod
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: inventory-api}
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}
+
+# ─────────────────────────────────────────────────────────────
+# Order API
+# ─────────────────────────────────────────────────────────────
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-api
+  namespace: retailerp-prod
+  labels:
+    app: order-api
+    app.kubernetes.io/part-of: retailerp
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels:
+      app: order-api
+  template:
+    metadata:
+      labels: {app: order-api}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: order-api
+        image: ${IMAGE_REGISTRY}/order-api:${VERSION}
+        ports: [{containerPort: 8080}]
+        envFrom:
+        - configMapRef: {name: retailerp-config}
+        - secretRef: {name: retailerp-secrets}
+        resources:
+          requests: {cpu: 150m, memory: 256Mi}
+          limits: {cpu: 1000m, memory: 768Mi}
+        livenessProbe:
+          httpGet: {path: /health, port: 8080}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet: {path: /health, port: 8080}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: order-api
+            topologyKey: kubernetes.io/hostname
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-api-service
+  namespace: retailerp-prod
+spec:
+  selector: {app: order-api}
+  ports: [{port: 80, targetPort: 8080}]
+  type: ClusterIP
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: order-api-pdb
+  namespace: retailerp-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: order-api
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-api-hpa
+  namespace: retailerp-prod
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: order-api}
+  minReplicas: 3
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}
+  - type: Resource
+    resource: {name: memory, target: {type: Utilization, averageUtilization: 80}}
+
+# ─────────────────────────────────────────────────────────────
+# Billing API
+# ─────────────────────────────────────────────────────────────
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-api
+  namespace: retailerp-prod
+  labels:
+    app: billing-api
+    app.kubernetes.io/part-of: retailerp
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels:
+      app: billing-api
+  template:
+    metadata:
+      labels: {app: billing-api}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: billing-api
+        image: ${IMAGE_REGISTRY}/billing-api:${VERSION}
+        ports: [{containerPort: 8080}]
+        envFrom:
+        - configMapRef: {name: retailerp-config}
+        - secretRef: {name: retailerp-secrets}
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+          limits: {cpu: 500m, memory: 512Mi}
+        livenessProbe:
+          httpGet: {path: /health, port: 8080}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet: {path: /health, port: 8080}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-api-service
+  namespace: retailerp-prod
+spec:
+  selector: {app: billing-api}
+  ports: [{port: 80, targetPort: 8080}]
+  type: ClusterIP
+
+# ─────────────────────────────────────────────────────────────
+# Frontend
+# ─────────────────────────────────────────────────────────────
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: retailerp-prod
+  labels:
+    app: frontend
+    app.kubernetes.io/part-of: retailerp
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels: {app: frontend}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: frontend
+        image: ${IMAGE_REGISTRY}/frontend:${VERSION}
+        ports: [{containerPort: 3000}]
+        env:
+        - name: NEXT_PUBLIC_API_URL
+          value: "https://api.retailerp.com"
+        - name: NODE_ENV
+          value: "production"
+        - name: NEXT_TELEMETRY_DISABLED
+          value: "1"
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+          limits: {cpu: 500m, memory: 512Mi}
+        livenessProbe:
+          httpGet: {path: /api/health, port: 3000}
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet: {path: /api/health, port: 3000}
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: retailerp-prod
+spec:
+  selector: {app: frontend}
+  ports: [{port: 80, targetPort: 3000}]
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: retailerp-prod
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: frontend}
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}

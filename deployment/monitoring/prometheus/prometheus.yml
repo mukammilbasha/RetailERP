@@ -1,0 +1,122 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'retailerp'
+    environment: '${ENVIRONMENT:-local}'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+      timeout: 10s
+
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+scrape_configs:
+  # ── API Gateway ─────────────────────────────────────────────
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['gateway:8080']
+        labels:
+          service: 'gateway'
+    metrics_path: '/metrics'
+
+  # ── Auth API ────────────────────────────────────────────────
+  - job_name: 'auth-api'
+    static_configs:
+      - targets: ['auth-api:8080']
+        labels:
+          service: 'auth-api'
+    metrics_path: '/metrics'
+
+  # ── Product API ─────────────────────────────────────────────
+  - job_name: 'product-api'
+    static_configs:
+      - targets: ['product-api:8080']
+        labels:
+          service: 'product-api'
+    metrics_path: '/metrics'
+
+  # ── Inventory API ───────────────────────────────────────────
+  - job_name: 'inventory-api'
+    static_configs:
+      - targets: ['inventory-api:8080']
+        labels:
+          service: 'inventory-api'
+    metrics_path: '/metrics'
+
+  # ── Order API ───────────────────────────────────────────────
+  - job_name: 'order-api'
+    static_configs:
+      - targets: ['order-api:8080']
+        labels:
+          service: 'order-api'
+    metrics_path: '/metrics'
+
+  # ── Production API ──────────────────────────────────────────
+  - job_name: 'production-api'
+    static_configs:
+      - targets: ['production-api:8080']
+        labels:
+          service: 'production-api'
+    metrics_path: '/metrics'
+
+  # ── Billing API ─────────────────────────────────────────────
+  - job_name: 'billing-api'
+    static_configs:
+      - targets: ['billing-api:8080']
+        labels:
+          service: 'billing-api'
+    metrics_path: '/metrics'
+
+  # ── Reporting API ───────────────────────────────────────────
+  - job_name: 'reporting-api'
+    static_configs:
+      - targets: ['reporting-api:8080']
+        labels:
+          service: 'reporting-api'
+    metrics_path: '/metrics'
+
+  # ── Prometheus self ─────────────────────────────────────────
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ── SQL Server Exporter ─────────────────────────────────────
+  - job_name: 'sqlserver'
+    static_configs:
+      - targets: ['sqlserver-exporter:9399']
+        labels:
+          service: 'sqlserver'
+
+  # ── Redis Exporter ──────────────────────────────────────────
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          service: 'redis'
+
+  # ── NGINX ───────────────────────────────────────────────────
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:9113']
+        labels:
+          service: 'nginx'
+
+  # ── Node exporter (host metrics) ───────────────────────────
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # ── cAdvisor (container metrics) ───────────────────────────
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metric_relabel_configs:
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service

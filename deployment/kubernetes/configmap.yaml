@@ -1,0 +1,65 @@
+# ── Dev ConfigMap ─────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: retailerp-config
+  namespace: retailerp-dev
+data:
+  ASPNETCORE_ENVIRONMENT: "Development"
+  ASPNETCORE_URLS: "http://+:8080"
+  Logging__LogLevel__Default: "Debug"
+  Logging__LogLevel__Microsoft: "Information"
+  Jwt__Issuer: "RetailERP.Auth"
+  Jwt__Audience: "RetailERP.Client"
+  Cors__Origins__0: "http://localhost:3000"
+  Cors__Origins__1: "http://localhost:3003"
+  Redis__Host: "redis-service"
+  Redis__Port: "6379"
+---
+# ── QA ConfigMap ──────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: retailerp-config
+  namespace: retailerp-qa
+data:
+  ASPNETCORE_ENVIRONMENT: "QA"
+  ASPNETCORE_URLS: "http://+:8080"
+  Logging__LogLevel__Default: "Information"
+  Logging__LogLevel__Microsoft: "Warning"
+  Jwt__Issuer: "RetailERP.Auth"
+  Jwt__Audience: "RetailERP.Client"
+  Redis__Host: "redis-service"
+  Redis__Port: "6379"
+---
+# ── UAT ConfigMap ─────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: retailerp-config
+  namespace: retailerp-uat
+data:
+  ASPNETCORE_ENVIRONMENT: "UAT"
+  ASPNETCORE_URLS: "http://+:8080"
+  Logging__LogLevel__Default: "Warning"
+  Logging__LogLevel__Microsoft: "Warning"
+  Jwt__Issuer: "RetailERP.Auth"
+  Jwt__Audience: "RetailERP.Client"
+  Redis__Host: "redis-service"
+  Redis__Port: "6379"
+---
+# ── Production ConfigMap ──────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: retailerp-config
+  namespace: retailerp-prod
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ASPNETCORE_URLS: "http://+:8080"
+  Logging__LogLevel__Default: "Warning"
+  Logging__LogLevel__Microsoft: "Warning"
+  Jwt__Issuer: "RetailERP.Auth"
+  Jwt__Audience: "RetailERP.Client"
+  Redis__Host: "redis-service"
+  Redis__Port: "6379"

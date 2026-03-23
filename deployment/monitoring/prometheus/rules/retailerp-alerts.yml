@@ -1,0 +1,156 @@
+groups:
+  # ── Service Availability ─────────────────────────────────────
+  - name: retailerp.availability
+    rules:
+    - alert: ServiceDown
+      expr: up{job=~"gateway|auth-api|product-api|inventory-api|order-api|billing-api"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "RetailERP service is down: {{ $labels.service }}"
+        description: "Service {{ $labels.service }} has been unreachable for more than 1 minute."
+        runbook: "Check Docker/Kubernetes status. Run: health-check.sh"
+
+    - alert: NonCriticalServiceDown
+      expr: up{job=~"production-api|reporting-api"} == 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Non-critical service down: {{ $labels.service }}"
+        description: "Service {{ $labels.service }} has been down for 5 minutes."
+
+  # ── Error Rate ────────────────────────────────────────────────
+  - name: retailerp.error_rate
+    rules:
+    - alert: HighErrorRate
+      expr: |
+        (
+          rate(http_requests_received_total{status_code=~"5.."}[5m])
+          /
+          rate(http_requests_received_total[5m])
+        ) > 0.01
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High HTTP 5xx error rate: {{ $labels.service }}"
+        description: "Error rate for {{ $labels.service }} is {{ $value | humanizePercentage }} (threshold: 1%)."
+
+    - alert: ElevatedErrorRate
+      expr: |
+        (
+          rate(http_requests_received_total{status_code=~"5.."}[5m])
+          /
+          rate(http_requests_received_total[5m])
+        ) > 0.005
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Elevated error rate: {{ $labels.service }}"
+        description: "Error rate for {{ $labels.service }} is {{ $value | humanizePercentage }}."
+
+  # ── Latency ───────────────────────────────────────────────────
+  - name: retailerp.latency
+    rules:
+    - alert: HighP95Latency
+      expr: |
+        histogram_quantile(0.95,
+          rate(http_request_duration_seconds_bucket[5m])
+        ) > 0.5
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High P95 latency: {{ $labels.service }}"
+        description: "P95 latency for {{ $labels.service }} is {{ $value | humanizeDuration }} (threshold: 500ms)."
+
+    - alert: CriticalP99Latency
+      expr: |
+        histogram_quantile(0.99,
+          rate(http_request_duration_seconds_bucket[5m])
+        ) > 2.0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Critical P99 latency: {{ $labels.service }}"
+        description: "P99 latency for {{ $labels.service }} is {{ $value | humanizeDuration }} (threshold: 2s)."
+
+  # ── Resource Usage ────────────────────────────────────────────
+  - name: retailerp.resources
+    rules:
+    - alert: HighCPUUsage
+      expr: |
+        rate(container_cpu_usage_seconds_total{
+          label_com_docker_compose_service=~"gateway|auth-api|product-api|inventory-api|order-api|billing-api"
+        }[5m]) * 100 > 80
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU: {{ $labels.label_com_docker_compose_service }}"
+        description: "CPU usage is {{ $value | humanize }}% for {{ $labels.label_com_docker_compose_service }}."
+
+    - alert: HighMemoryUsage
+      expr: |
+        (container_memory_usage_bytes / container_spec_memory_limit_bytes) * 100 > 85
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High memory: {{ $labels.service }}"
+        description: "Memory usage is {{ $value | humanize }}% for {{ $labels.service }}."
+
+    - alert: PodCrashLooping
+      expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Pod crash-looping: {{ $labels.pod }}"
+        description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash-looping."
+
+  # ── Database ──────────────────────────────────────────────────
+  - name: retailerp.database
+    rules:
+    - alert: SQLServerDown
+      expr: up{job="sqlserver"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "SQL Server is unreachable"
+        description: "The SQL Server instance has been unreachable for 1 minute. All APIs will fail."
+
+    - alert: HighDBConnections
+      expr: sqlserver_connections > 400
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High SQL Server connections"
+        description: "SQL Server has {{ $value }} active connections (threshold: 400)."
+
+  # ── Disk Space ────────────────────────────────────────────────
+  - name: retailerp.disk
+    rules:
+    - alert: DiskSpaceLow
+      expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 20
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Low disk space on {{ $labels.instance }}"
+        description: "Disk {{ $labels.mountpoint }} has {{ $value | humanize }}% free."
+
+    - alert: DiskSpaceCritical
+      expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Critical disk space on {{ $labels.instance }}"
+        description: "Disk {{ $labels.mountpoint }} has only {{ $value | humanize }}% free!"

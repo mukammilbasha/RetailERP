@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: retailerp-dev
+  labels:
+    app.kubernetes.io/part-of: retailerp
+    environment: dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: retailerp-qa
+  labels:
+    app.kubernetes.io/part-of: retailerp
+    environment: qa
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: retailerp-uat
+  labels:
+    app.kubernetes.io/part-of: retailerp
+    environment: uat
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: retailerp-prod
+  labels:
+    app.kubernetes.io/part-of: retailerp
+    environment: prod

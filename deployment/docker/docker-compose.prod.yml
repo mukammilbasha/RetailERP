@@ -1,0 +1,190 @@
+# ============================================================
+# RetailERP — Docker Compose Production Overrides
+# Usage: docker compose -f docker-compose.yml -f deployment/docker/docker-compose.prod.yml up -d
+# ============================================================
+services:
+  auth-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Logging__LogLevel__Default: "Warning"
+      Logging__LogLevel__Microsoft: "Warning"
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 5
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first   # Zero-downtime: new container starts before old stops
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  product-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Logging__LogLevel__Default: "Warning"
+    deploy:
+      replicas: 2
+      restart_policy: {condition: any, delay: 5s}
+      resources:
+        limits: {cpus: '0.5', memory: 512M}
+        reservations: {cpus: '0.1', memory: 128M}
+      update_config: {parallelism: 1, delay: 10s, failure_action: rollback, order: start-first}
+    restart: always
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "5"}
+
+  inventory-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Logging__LogLevel__Default: "Warning"
+    deploy:
+      replicas: 2
+      resources:
+        limits: {cpus: '0.5', memory: 512M}
+        reservations: {cpus: '0.1', memory: 128M}
+      update_config: {parallelism: 1, delay: 10s, failure_action: rollback, order: start-first}
+    restart: always
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "5"}
+
+  order-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Logging__LogLevel__Default: "Warning"
+    deploy:
+      replicas: 3
+      resources:
+        limits: {cpus: '1.0', memory: 768M}
+        reservations: {cpus: '0.25', memory: 256M}
+      update_config: {parallelism: 1, delay: 10s, failure_action: rollback, order: start-first}
+    restart: always
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "5"}
+
+  production-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Logging__LogLevel__Default: "Warning"
+    deploy:
+      replicas: 2
+      resources:
+        limits: {cpus: '0.5', memory: 512M}
+        reservations: {cpus: '0.1', memory: 128M}
+      update_config: {parallelism: 1, delay: 10s, failure_action: rollback, order: start-first}
+    restart: always
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "5"}
+
+  billing-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Logging__LogLevel__Default: "Warning"
+    deploy:
+      replicas: 2
+      resources:
+        limits: {cpus: '0.5', memory: 512M}
+        reservations: {cpus: '0.1', memory: 128M}
+      update_config: {parallelism: 1, delay: 10s, failure_action: rollback, order: start-first}
+    restart: always
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "5"}
+
+  reporting-api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Logging__LogLevel__Default: "Warning"
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: '1.0', memory: 1G}
+        reservations: {cpus: '0.2', memory: 256M}
+    restart: always
+    logging:
+      driver: json-file
+      options: {max-size: "100m", max-file: "5"}
+
+  gateway:
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Logging__LogLevel__Default: "Warning"
+    deploy:
+      replicas: 2
+      resources:
+        limits: {cpus: '0.5', memory: 256M}
+        reservations: {cpus: '0.1', memory: 128M}
+      update_config: {parallelism: 1, delay: 10s, failure_action: rollback, order: start-first}
+    restart: always
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "5"}
+
+  frontend:
+    environment:
+      NODE_ENV: "production"
+      NEXT_TELEMETRY_DISABLED: "1"
+    deploy:
+      replicas: 2
+      resources:
+        limits: {cpus: '0.5', memory: 512M}
+        reservations: {cpus: '0.1', memory: 128M}
+      update_config: {parallelism: 1, delay: 10s, failure_action: rollback, order: start-first}
+    restart: always
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "5"}
+
+  sqlserver:
+    environment:
+      MSSQL_PID: "Standard"
+    deploy:
+      resources:
+        limits: {cpus: '4.0', memory: 4G}
+        reservations: {cpus: '1.0', memory: 2G}
+    restart: always
+    logging:
+      driver: json-file
+      options: {max-size: "100m", max-file: "10"}
+
+  redis:
+    deploy:
+      resources:
+        limits: {cpus: '0.5', memory: 512M}
+    restart: always
+    command: redis-server --maxmemory 400mb --maxmemory-policy allkeys-lru --appendonly yes
+    logging:
+      driver: json-file
+      options: {max-size: "20m", max-file: "3"}
+
+  prometheus:
+    deploy:
+      resources:
+        limits: {cpus: '0.5', memory: 1G}
+    restart: always
+
+  grafana:
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD}"
+      GF_SERVER_ROOT_URL: "https://monitoring.retailerp.com"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
