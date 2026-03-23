@@ -1,0 +1,139 @@
+name: RetailERP CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/retailerp
+
+jobs:
+  # Build and test backend services
+  backend-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [auth, product, inventory, order, billing, production, reporting, gateway]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: src/services/${{ matrix.service }}
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+        working-directory: src/services/${{ matrix.service }}
+
+  # Build and test frontend
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: src/frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: src/frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: src/frontend
+
+  # Build and push Docker images
+  docker-build:
+    needs: [backend-build, frontend-build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service: auth
+            dockerfile: docker/Dockerfile.api
+            build-args: SERVICE=auth
+          - service: product
+            dockerfile: docker/Dockerfile.api
+            build-args: SERVICE=product
+          - service: inventory
+            dockerfile: docker/Dockerfile.api
+            build-args: SERVICE=inventory
+          - service: order
+            dockerfile: docker/Dockerfile.api
+            build-args: SERVICE=order
+          - service: billing
+            dockerfile: docker/Dockerfile.api
+            build-args: SERVICE=billing
+          - service: gateway
+            dockerfile: docker/Dockerfile.gateway
+            build-args: ""
+          - service: frontend
+            dockerfile: docker/Dockerfile.frontend
+            build-args: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
+          build-args: ${{ matrix.build-args }}
+
+  # Deploy to staging
+  deploy-staging:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Set K8s context
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Deploy to staging
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/ -n retailerp
+          kubectl set image deployment/auth-api auth-api=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-auth:${{ github.sha }} -n retailerp
+          kubectl set image deployment/gateway gateway=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-gateway:${{ github.sha }} -n retailerp
+          kubectl rollout status deployment/auth-api -n retailerp --timeout=300s
+          kubectl rollout status deployment/gateway -n retailerp --timeout=300s

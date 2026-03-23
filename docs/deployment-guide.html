@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RetailERP — Deployment Guide</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 10pt; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1a1a2e;
+    background: #fff;
+    line-height: 1.6;
+  }
+
+  /* ── Cover Page ───────────────────────────────────── */
+  .cover {
+    page-break-after: always;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    color: #fff;
+    text-align: center;
+    padding: 60px 40px;
+  }
+  .cover-logo {
+    width: 80px; height: 80px;
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; font-weight: 900; color: #fff;
+    margin-bottom: 32px;
+    box-shadow: 0 8px 32px rgba(249,115,22,0.4);
+    letter-spacing: -1px;
+  }
+  .cover-brand { font-size: 13pt; color: #94a3b8; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px; }
+  .cover-title { font-size: 32pt; font-weight: 800; line-height: 1.2; margin-bottom: 16px; }
+  .cover-subtitle { font-size: 14pt; color: #94a3b8; margin-bottom: 48px; }
+  .cover-meta {
+    display: flex; gap: 40px; justify-content: center;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 32px;
+    margin-top: 16px;
+  }
+  .cover-meta-item { font-size: 9pt; color: #64748b; }
+  .cover-meta-item span { display: block; color: #cbd5e1; font-size: 11pt; font-weight: 600; }
+  .cover-badges { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 48px; }
+  .badge {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 8.5pt;
+    color: #94a3b8;
+  }
+  .badge-orange { background: rgba(249,115,22,0.15); border-color: rgba(249,115,22,0.3); color: #fb923c; }
+
+  /* ── TOC ──────────────────────────────────────────── */
+  .toc-page {
+    page-break-after: always;
+    padding: 60px 60px 60px 60px;
+  }
+  .toc-title { font-size: 22pt; font-weight: 800; color: #0f172a; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 3px solid #f97316; }
+  .toc-section { margin-bottom: 8px; }
+  .toc-section-title {
+    font-size: 11pt; font-weight: 700; color: #0f172a;
+    padding: 8px 0; border-bottom: 1px dashed #e2e8f0;
+    display: flex; justify-content: space-between;
+  }
+  .toc-section-title .toc-num { color: #f97316; margin-right: 8px; }
+  .toc-item {
+    font-size: 9.5pt; color: #475569;
+    padding: 4px 0 4px 20px;
+    border-bottom: 1px dotted #f1f5f9;
+    display: flex; justify-content: space-between;
+  }
+  .toc-page-num { color: #94a3b8; }
+
+  /* ── Chapter Layout ───────────────────────────────── */
+  .chapter { page-break-before: always; padding: 0; }
+  .chapter-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #fff;
+    padding: 40px 60px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .chapter-header::after {
+    content: '';
+    position: absolute; right: -20px; top: 0; bottom: 0;
+    width: 200px;
+    background: linear-gradient(90deg, transparent, rgba(249,115,22,0.08));
+  }
+  .chapter-number { font-size: 9pt; color: #f97316; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .chapter-title { font-size: 22pt; font-weight: 800; line-height: 1.2; }
+  .chapter-subtitle { font-size: 10pt; color: #94a3b8; margin-top: 8px; }
+  .chapter-body { padding: 48px 60px; }
+
+  /* ── Typography ───────────────────────────────────── */
+  h2 { font-size: 16pt; font-weight: 700; color: #0f172a; margin: 36px 0 16px; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9; }
+  h3 { font-size: 12pt; font-weight: 700; color: #1e293b; margin: 28px 0 12px; }
+  h4 { font-size: 10.5pt; font-weight: 700; color: #334155; margin: 20px 0 8px; }
+  p { margin-bottom: 12px; color: #374151; }
+  ul, ol { margin: 0 0 16px 24px; }
+  li { margin-bottom: 5px; color: #374151; }
+  strong { color: #0f172a; }
+  code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 8.5pt;
+    background: #f1f5f9;
+    color: #dc2626;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid #e2e8f0;
+  }
+
+  /* ── Code Blocks ──────────────────────────────────── */
+  .code-block {
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0 20px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    position: relative;
+  }
+  .code-block-label {
+    position: absolute; top: 8px; right: 12px;
+    font-size: 7.5pt; color: #475569; font-family: monospace;
+  }
+  .code-block pre {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 8pt;
+    color: #e2e8f0;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+  }
+  .code-block .cm { color: #64748b; }   /* comment */
+  .code-block .kw { color: #7dd3fc; }   /* keyword / key */
+  .code-block .st { color: #86efac; }   /* string value */
+  .code-block .nm { color: #fbbf24; }   /* number */
+  .code-block .pu { color: #e2e8f0; }   /* punctuation */
+  .code-block .pr { color: #c084fc; }   /* property/directive */
+  .code-block .cmd { color: #34d399; }  /* command */
+
+  /* ── Tables ───────────────────────────────────────── */
+  table {
+    width: 100%; border-collapse: collapse;
+    margin: 16px 0 24px; font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  thead tr { background: #0f172a; color: #fff; }
+  thead th { padding: 10px 14px; text-align: left; font-weight: 600; font-size: 8.5pt; }
+  tbody tr:nth-child(even) { background: #f8fafc; }
+  tbody tr:hover { background: #f1f5f9; }
+  tbody td { padding: 9px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  .td-mono { font-family: monospace; font-size: 8pt; color: #0369a1; }
+  .td-port { font-family: monospace; font-size: 8.5pt; font-weight: 700; color: #f97316; }
+
+  /* ── Callout Boxes ────────────────────────────────── */
+  .callout {
+    border-radius: 8px; padding: 16px 20px; margin: 20px 0;
+    display: flex; gap: 14px; align-items: flex-start;
+    page-break-inside: avoid;
+  }
+  .callout-icon { font-size: 16pt; line-height: 1; flex-shrink: 0; }
+  .callout-body { flex: 1; }
+  .callout-title { font-weight: 700; font-size: 10pt; margin-bottom: 4px; }
+  .callout-text { font-size: 9pt; line-height: 1.6; }
+  .callout.info    { background: #eff6ff; border-left: 4px solid #3b82f6; }
+  .callout.info    .callout-title { color: #1d4ed8; }
+  .callout.warning { background: #fffbeb; border-left: 4px solid #f59e0b; }
+  .callout.warning .callout-title { color: #b45309; }
+  .callout.danger  { background: #fef2f2; border-left: 4px solid #ef4444; }
+  .callout.danger  .callout-title { color: #b91c1c; }
+  .callout.success { background: #f0fdf4; border-left: 4px solid #22c55e; }
+  .callout.success .callout-title { color: #15803d; }
+  .callout.tip     { background: #faf5ff; border-left: 4px solid #a855f7; }
+  .callout.tip     .callout-title { color: #7e22ce; }
+
+  /* ── Step Lists ───────────────────────────────────── */
+  .steps { list-style: none; margin: 0 0 20px; padding: 0; counter-reset: step-counter; }
+  .steps li { counter-increment: step-counter; display: flex; gap: 16px; margin-bottom: 12px; align-items: flex-start; }
+  .steps li::before {
+    content: counter(step-counter);
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    background: #f97316; color: #fff;
+    border-radius: 50%; font-size: 9pt; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .step-body { flex: 1; padding-top: 3px; }
+
+  /* ── Architecture Diagram ─────────────────────────── */
+  .arch-diagram {
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 32px;
+    margin: 24px 0;
+    color: #e2e8f0;
+    font-family: monospace;
+    font-size: 8pt;
+  }
+  .arch-row { display: flex; gap: 12px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+  .arch-box {
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 8pt;
+    text-align: center;
+    min-width: 100px;
+  }
+  .arch-box.client  { border-color: #7dd3fc; color: #7dd3fc; background: rgba(125,211,252,0.05); }
+  .arch-box.frontend { border-color: #86efac; color: #86efac; background: rgba(134,239,172,0.05); }
+  .arch-box.gateway { border-color: #fbbf24; color: #fbbf24; background: rgba(251,191,36,0.07); }
+  .arch-box.service { border-color: #c084fc; color: #c084fc; background: rgba(192,132,252,0.05); }
+  .arch-box.db      { border-color: #f97316; color: #f97316; background: rgba(249,115,22,0.05); }
+  .arch-box.infra   { border-color: #64748b; color: #94a3b8; background: rgba(100,116,139,0.05); }
+  .arch-arrow { color: #475569; font-size: 11pt; }
+  .arch-label { color: #64748b; font-size: 7.5pt; }
+  .arch-section-label { color: #f97316; font-size: 8pt; font-weight: 700; margin-bottom: 8px; letter-spacing: 1px; }
+
+  /* ── Port Reference Card ──────────────────────────── */
+  .port-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 24px; }
+  .port-card {
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 8px; padding: 12px 16px;
+    page-break-inside: avoid;
+  }
+  .port-card-num { font-size: 14pt; font-weight: 800; color: #f97316; font-family: monospace; }
+  .port-card-name { font-size: 8.5pt; font-weight: 600; color: #0f172a; }
+  .port-card-desc { font-size: 7.5pt; color: #64748b; margin-top: 2px; }
+
+  /* ── Section divider ──────────────────────────────── */
+  .divider { border: none; border-top: 2px solid #f1f5f9; margin: 32px 0; }
+
+  /* ── Checklist ────────────────────────────────────── */
+  .checklist { list-style: none; padding: 0; margin: 0 0 20px; }
+  .checklist li { padding: 5px 0 5px 28px; position: relative; font-size: 9.5pt; color: #374151; border-bottom: 1px dotted #f1f5f9; }
+  .checklist li::before { content: '☐'; position: absolute; left: 4px; color: #94a3b8; }
+
+  /* ── Print ────────────────────────────────────────── */
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .chapter { page-break-before: always; }
+    .no-break { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- COVER PAGE                                                       -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">EC</div>
+  <div class="cover-brand">EL CURIO | RetailERP</div>
+  <div class="cover-title">Deployment Guide</div>
+  <div class="cover-subtitle">Docker &amp; IIS Deployment — Step-by-Step Reference</div>
+  <div class="cover-badges">
+    <span class="badge badge-orange">Docker Compose</span>
+    <span class="badge">IIS on Windows Server</span>
+    <span class="badge">.NET 8 / ASP.NET Core</span>
+    <span class="badge">Next.js 15</span>
+    <span class="badge">SQL Server 2022</span>
+    <span class="badge">Redis 7</span>
+  </div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">Version <span>v2.1</span></div>
+    <div class="cover-meta-item">Date <span>March 2026</span></div>
+    <div class="cover-meta-item">Platform <span>Windows / Linux</span></div>
+    <div class="cover-meta-item">Audience <span>DevOps / SysAdmin</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                                                -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="toc-page">
+  <div class="toc-title">Table of Contents</div>
+
+  <div class="toc-section">
+    <div class="toc-section-title"><span><span class="toc-num">1</span> Architecture Overview</span><span class="toc-page-num">3</span></div>
+    <div class="toc-item"><span>System Components &amp; Service Map</span><span class="toc-page-num">3</span></div>
+    <div class="toc-item"><span>Port Reference</span><span class="toc-page-num">3</span></div>
+    <div class="toc-item"><span>Default Credentials</span><span class="toc-page-num">4</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title"><span><span class="toc-num">2</span> Docker Deployment</span><span class="toc-page-num">5</span></div>
+    <div class="toc-item"><span>Prerequisites</span><span class="toc-page-num">5</span></div>
+    <div class="toc-item"><span>Quick Start — Docker Compose</span><span class="toc-page-num">5</span></div>
+    <div class="toc-item"><span>Environment Configuration (.env)</span><span class="toc-page-num">6</span></div>
+    <div class="toc-item"><span>Building Individual Service Images</span><span class="toc-page-num">7</span></div>
+    <div class="toc-item"><span>Health Checks &amp; Service Dependencies</span><span class="toc-page-num">7</span></div>
+    <div class="toc-item"><span>Common Docker Operations</span><span class="toc-page-num">8</span></div>
+    <div class="toc-item"><span>Volumes &amp; Data Persistence</span><span class="toc-page-num">8</span></div>
+    <div class="toc-item"><span>Production Hardening for Docker</span><span class="toc-page-num">9</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title"><span><span class="toc-num">3</span> IIS Deployment (Windows Server)</span><span class="toc-page-num">10</span></div>
+    <div class="toc-item"><span>Prerequisites &amp; Windows Features</span><span class="toc-page-num">10</span></div>
+    <div class="toc-item"><span>Step 1 — SQL Server Setup</span><span class="toc-page-num">11</span></div>
+    <div class="toc-item"><span>Step 2 — Redis Setup</span><span class="toc-page-num">11</span></div>
+    <div class="toc-item"><span>Step 3 — Publish Microservices</span><span class="toc-page-num">12</span></div>
+    <div class="toc-item"><span>Step 4 — IIS Application Pools &amp; Sites</span><span class="toc-page-num">13</span></div>
+    <div class="toc-item"><span>Step 5 — web.config for each Service</span><span class="toc-page-num">14</span></div>
+    <div class="toc-item"><span>Step 6 — Deploy API Gateway</span><span class="toc-page-num">15</span></div>
+    <div class="toc-item"><span>Step 7 — Deploy Next.js Frontend</span><span class="toc-page-num">16</span></div>
+    <div class="toc-item"><span>Step 8 — IIS Reverse Proxy (ARR)</span><span class="toc-page-num">17</span></div>
+    <div class="toc-item"><span>Step 9 — SSL/TLS Configuration</span><span class="toc-page-num">18</span></div>
+    <div class="toc-item"><span>Windows Service Alternative</span><span class="toc-page-num">19</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title"><span><span class="toc-num">4</span> Configuration Reference</span><span class="toc-page-num">20</span></div>
+    <div class="toc-item"><span>appsettings.json per Environment</span><span class="toc-page-num">20</span></div>
+    <div class="toc-item"><span>Frontend Environment Variables</span><span class="toc-page-num">20</span></div>
+    <div class="toc-item"><span>JWT &amp; Security Settings</span><span class="toc-page-num">21</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title"><span><span class="toc-num">5</span> Troubleshooting</span><span class="toc-page-num">22</span></div>
+    <div class="toc-item"><span>Docker Common Issues</span><span class="toc-page-num">22</span></div>
+    <div class="toc-item"><span>IIS Common Issues</span><span class="toc-page-num">22</span></div>
+    <div class="toc-item"><span>Database Connectivity Issues</span><span class="toc-page-num">23</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CHAPTER 1 — ARCHITECTURE OVERVIEW                               -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 1</div>
+    <div class="chapter-title">Architecture Overview</div>
+    <div class="chapter-subtitle">System components, service topology, and port assignments</div>
+  </div>
+  <div class="chapter-body">
+
+    <h2>System Architecture</h2>
+    <p>RetailERP is a microservices-based platform. All client requests flow through the YARP API Gateway. The Next.js frontend proxies API calls to the gateway. Each backend service is an independent ASP.NET Core application with its own database schema.</p>
+
+    <div class="arch-diagram">
+      <div class="arch-section-label">CLIENTS</div>
+      <div class="arch-row">
+        <div class="arch-box client">Browser</div>
+        <div class="arch-box client">Mobile App</div>
+        <div class="arch-box client">API Client</div>
+      </div>
+      <div class="arch-row"><div class="arch-arrow">↓ HTTP/HTTPS</div></div>
+      <div style="margin-bottom:16px;">
+        <div class="arch-section-label">PRESENTATION LAYER</div>
+        <div class="arch-row">
+          <div class="arch-box frontend">Next.js Frontend<br><span style="font-size:7pt;color:#64748b;">:3003 (Docker) / :3000 (IIS)</span></div>
+          <div class="arch-arrow">→ /api/* proxy →</div>
+          <div class="arch-box gateway">YARP API Gateway<br><span style="font-size:7pt;color:#64748b;">:5000</span></div>
+        </div>
+      </div>
+      <div class="arch-row"><div class="arch-arrow">↓ routes by path prefix</div></div>
+      <div style="margin-bottom:16px;">
+        <div class="arch-section-label">MICROSERVICES LAYER</div>
+        <div class="arch-row" style="flex-wrap:wrap;">
+          <div class="arch-box service">Auth<br><span style="font-size:7pt;color:#64748b;">:5001</span></div>
+          <div class="arch-box service">Product<br><span style="font-size:7pt;color:#64748b;">:5002</span></div>
+          <div class="arch-box service">Inventory<br><span style="font-size:7pt;color:#64748b;">:5003</span></div>
+          <div class="arch-box service">Order<br><span style="font-size:7pt;color:#64748b;">:5004</span></div>
+          <div class="arch-box service">Production<br><span style="font-size:7pt;color:#64748b;">:5005</span></div>
+          <div class="arch-box service">Billing<br><span style="font-size:7pt;color:#64748b;">:5006</span></div>
+          <div class="arch-box service">Reporting<br><span style="font-size:7pt;color:#64748b;">:5007</span></div>
+        </div>
+      </div>
+      <div class="arch-row"><div class="arch-arrow">↓ all services connect to shared infrastructure</div></div>
+      <div class="arch-section-label">INFRASTRUCTURE</div>
+      <div class="arch-row">
+        <div class="arch-box db">SQL Server 2022<br><span style="font-size:7pt;color:#64748b;">:1434 (Docker) / :1433 (local)</span></div>
+        <div class="arch-box infra">Redis 7<br><span style="font-size:7pt;color:#64748b;">:6380 (Docker) / :6379 (local)</span></div>
+        <div class="arch-box infra">Prometheus<br><span style="font-size:7pt;color:#64748b;">:9091</span></div>
+        <div class="arch-box infra">Grafana<br><span style="font-size:7pt;color:#64748b;">:3002</span></div>
+      </div>
+    </div>
+
+    <h2>Port Reference</h2>
+    <div class="port-grid">
+      <div class="port-card"><div class="port-card-num">3003</div><div class="port-card-name">Frontend (Docker)</div><div class="port-card-desc">Next.js web application</div></div>
+      <div class="port-card"><div class="port-card-num">5000</div><div class="port-card-name">API Gateway</div><div class="port-card-desc">YARP reverse proxy, all API traffic</div></div>
+      <div class="port-card"><div class="port-card-num">5001</div><div class="port-card-name">Auth Service</div><div class="port-card-desc">Login, JWT, user management</div></div>
+      <div class="port-card"><div class="port-card-num">5002</div><div class="port-card-name">Product Service</div><div class="port-card-desc">Articles, SKUs, masters</div></div>
+      <div class="port-card"><div class="port-card-num">5003</div><div class="port-card-name">Inventory Service</div><div class="port-card-desc">Stock, GRN, dispatch, freeze</div></div>
+      <div class="port-card"><div class="port-card-num">5004</div><div class="port-card-name">Order Service</div><div class="port-card-desc">Customer orders, channels</div></div>
+      <div class="port-card"><div class="port-card-num">5005</div><div class="port-card-name">Production Service</div><div class="port-card-desc">Production orders, job work</div></div>
+      <div class="port-card"><div class="port-card-num">5006</div><div class="port-card-name">Billing Service</div><div class="port-card-desc">Invoices, packing, delivery</div></div>
+      <div class="port-card"><div class="port-card-num">5007</div><div class="port-card-name">Reporting Service</div><div class="port-card-desc">Analytics and reports</div></div>
+      <div class="port-card"><div class="port-card-num">1434</div><div class="port-card-name">SQL Server</div><div class="port-card-desc">Docker mapped; local uses 1433</div></div>
+      <div class="port-card"><div class="port-card-num">6380</div><div class="port-card-name">Redis</div><div class="port-card-desc">Docker mapped; local uses 6379</div></div>
+      <div class="port-card"><div class="port-card-num">3002</div><div class="port-card-name">Grafana</div><div class="port-card-desc">Metrics dashboard</div></div>
+    </div>
+
+    <h2>Default Credentials</h2>
+    <table class="no-break">
+      <thead><tr><th>Service</th><th>Username / User</th><th>Password</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>RetailERP Application</td><td class="td-mono">admin@elcurio.com</td><td class="td-mono">Admin@123</td><td>Change after first login</td></tr>
+        <tr><td>SQL Server (SA)</td><td class="td-mono">sa</td><td class="td-mono">RetailERP@2024!</td><td>Set in <code>.env</code> / docker-compose</td></tr>
+        <tr><td>Grafana</td><td class="td-mono">admin</td><td class="td-mono">admin</td><td>Set <code>GF_SECURITY_ADMIN_PASSWORD</code></td></tr>
+        <tr><td>Redis</td><td>—</td><td>—</td><td>No password in default config</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout danger">
+      <div class="callout-icon">🔐</div>
+      <div class="callout-body">
+        <div class="callout-title">Change All Credentials Before Production</div>
+        <div class="callout-text">The passwords shown above are development defaults. Before deploying to production, change the SA password, the JWT secret (minimum 32 characters), the Grafana admin password, and the application admin account password. Store secrets in environment variables or a secrets manager — never commit them in source control.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CHAPTER 2 — DOCKER DEPLOYMENT                                   -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 2</div>
+    <div class="chapter-title">Docker Deployment</div>
+    <div class="chapter-subtitle">Deploy all services using Docker Compose — recommended for staging and production on Linux/Windows</div>
+  </div>
+  <div class="chapter-body">
+
+    <h2>Prerequisites</h2>
+    <table class="no-break">
+      <thead><tr><th>Requirement</th><th>Minimum Version</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Docker Engine</strong></td><td>24.0+</td><td>Linux, Windows (WSL2), or Docker Desktop</td></tr>
+        <tr><td><strong>Docker Compose</strong></td><td>v2.20+ (plugin)</td><td><code>docker compose</code> (not legacy <code>docker-compose</code>)</td></tr>
+        <tr><td><strong>Available RAM</strong></td><td>8 GB minimum</td><td>16 GB recommended for all services</td></tr>
+        <tr><td><strong>Available Disk</strong></td><td>20 GB free</td><td>For images, DB volumes, and logs</td></tr>
+        <tr><td><strong>CPU</strong></td><td>4 cores</td><td>8+ cores recommended</td></tr>
+        <tr><td><strong>Git</strong></td><td>Any recent version</td><td>To clone the repository</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Quick Start — Docker Compose</h2>
+    <h4>Step 1 — Clone &amp; configure environment</h4>
+    <div class="code-block"><span class="code-block-label">bash</span><pre><span class="cm"># Clone the repository</span>
+<span class="cmd">git clone</span> https://github.com/your-org/RetailERP.git
+<span class="cmd">cd</span> RetailERP
+
+<span class="cm"># Copy and edit the environment file</span>
+<span class="cmd">cp</span> .env.example .env
+<span class="cmd">nano</span> .env    <span class="cm"># set SA_PASSWORD and JWT_SECRET</span></pre></div>
+
+    <h4>Step 2 — Build and start all services</h4>
+    <div class="code-block"><span class="code-block-label">bash</span><pre><span class="cm"># Build all images and start in detached mode</span>
+<span class="cmd">bash</span> scripts/deploy-docker.sh up
+
+<span class="cm"># OR using Docker Compose directly</span>
+<span class="cmd">docker compose</span> build --parallel
+<span class="cmd">docker compose</span> up -d</pre></div>
+
+    <h4>Step 3 — Verify all services are running</h4>
+    <div class="code-block"><span class="code-block-label">bash</span><pre><span class="cmd">docker compose</span> ps
+
+<span class="cm"># Expected output — all services should show "healthy" or "running":</span>
+<span class="cm"># NAME                     STATUS          PORTS</span>
+<span class="cm"># retailerp-sqlserver      healthy         0.0.0.0:1434->1433/tcp</span>
+<span class="cm"># retailerp-redis          healthy         0.0.0.0:6380->6379/tcp</span>
+<span class="cm"># retailerp-auth           healthy         0.0.0.0:5001->8080/tcp</span>
+<span class="cm"># retailerp-product        running         0.0.0.0:5002->8080/tcp</span>
+<span class="cm"># retailerp-inventory      running         0.0.0.0:5003->8080/tcp</span>
+<span class="cm"># retailerp-gateway        healthy         0.0.0.0:5000->8080/tcp</span>
+<span class="cm"># retailerp-frontend       running         0.0.0.0:3003->3000/tcp</span></pre></div>
+
+    <h4>Step 4 — Run database initialization</h4>
+    <p>The <code>db-init</code> container runs automatically on first startup and executes all SQL scripts from the <code>database/</code> folder in order: schemas → tables → indexes → stored-procedures → seed-data. This container exits once complete.</p>
+    <div class="code-block"><span class="code-block-label">bash</span><pre><span class="cm"># Watch initialization logs</span>
+<span class="cmd">docker logs</span> retailerp-db-init --follow
+
+<span class="cm"># Expected last line:</span>
+<span class="cm"># Database initialization complete!</span></pre></div>
+
+    <div class="callout success">
+      <div class="callout-icon">✅</div>
+      <div class="callout-body">
+        <div class="callout-title">Application is Ready</div>
+        <div class="callout-text">Once all services are healthy, open <strong>http://localhost:3003</strong> in your browser and log in with <strong>admin@elcurio.com / Admin@123</strong>.</div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <h2>Environment Configuration (.env)</h2>
+    <p>The root <code>.env</code> file provides secrets to Docker Compose. Never commit this file to source control.</p>
+    <div class="code-block"><span class="code-block-label">.env</span><pre><span class="cm"># SQL Server SA password — must match across all services</span>
+<span class="kw">SA_PASSWORD</span>=<span class="st">RetailERP@2024!</span>
+
+<span class="cm"># JWT signing secret — minimum 32 characters, keep secret</span>
+<span class="kw">JWT_SECRET</span>=<span class="st">RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters</span>
+
+<span class="cm"># Grafana admin password</span>
+<span class="kw">GRAFANA_PASSWORD</span>=<span class="st">admin</span></pre></div>
+
+    <p>These values are injected into each container via the <code>x-common-env</code> YAML anchor in <code>docker-compose.yml</code>:</p>
+    <div class="code-block"><span class="code-block-label">docker-compose.yml (excerpt)</span><pre><span class="kw">x-common-env</span>: <span class="st">&amp;common-env</span>
+  <span class="kw">ASPNETCORE_ENVIRONMENT</span>: <span class="st">"Docker"</span>
+  <span class="kw">ASPNETCORE_URLS</span>:         <span class="st">"http://+:8080"</span>
+  <span class="kw">ConnectionStrings__DefaultConnection</span>: <span class="st">"Server=sqlserver;Database=RetailERP;User Id=sa;Password=RetailERP@2024!;TrustServerCertificate=true"</span>
+  <span class="kw">Jwt__Secret</span>:    <span class="st">"RetailERP-SuperSecret-JWT-Key-2024..."</span>
+  <span class="kw">Jwt__Issuer</span>:    <span class="st">"RetailERP.Auth"</span>
+  <span class="kw">Jwt__Audience</span>:  <span class="st">"RetailERP.Client"</span></pre></div>
+
+    <hr class="divider" />
+
+    <h2>Building Individual Service Images</h2>
+    <p>Each microservice uses the same parameterized <code>Dockerfile.api</code> with build arguments <code>SERVICE_NAME</code> and <code>SERVICE_DIR</code>.</p>
+    <div class="code-block"><span class="code-block-label">bash — build individual service</span><pre><span class="cm"># Build the Inventory service image</span>
+<span class="cmd">docker build</span> \
+  -f docker/Dockerfile.api \
+  --build-arg <span class="kw">SERVICE_NAME</span>=<span class="st">Inventory</span> \
+  --build-arg <span class="kw">SERVICE_DIR</span>=<span class="st">inventory</span> \
+  -t retailerp-inventory:latest \
+  .
+
+<span class="cm"># Build the Frontend image</span>
+<span class="cmd">docker build</span> \
+  -f docker/Dockerfile.frontend \
+  -t retailerp-frontend:latest \
+  .
+
+<span class="cm"># Build the Gateway image</span>
+<span class="cmd">docker build</span> \
+  -f docker/Dockerfile.gateway \
+  -t retailerp-gateway:latest \
+  .</pre></div>
+
+    <hr class="divider" />
+
+    <h2>Health Checks &amp; Service Dependencies</h2>
+    <p>Services start in dependency order enforced by Docker Compose health checks:</p>
+    <table class="no-break">
+      <thead><tr><th>Service</th><th>Waits For</th><th>Health Check</th><th>Interval</th></tr></thead>
+      <tbody>
+        <tr><td>db-init</td><td>sqlserver (healthy)</td><td>SQL SELECT 1</td><td>15s</td></tr>
+        <tr><td>auth-api</td><td>sqlserver, redis (healthy)</td><td><code>curl /health</code></td><td>15s / 5 retries</td></tr>
+        <tr><td>product-, inventory-, order-, billing-api</td><td>sqlserver (healthy)</td><td><code>curl /health</code></td><td>30s / 3 retries</td></tr>
+        <tr><td>gateway</td><td>auth-api (healthy)</td><td><code>curl /health</code></td><td>30s / 3 retries</td></tr>
+        <tr><td>frontend</td><td>gateway (started)</td><td><code>wget localhost:3000</code></td><td>30s / 3 retries</td></tr>
+      </tbody>
+    </table>
+
+    <hr class="divider" />
+
+    <h2>Common Docker Operations</h2>
+    <div class="code-block"><span class="code-block-label">bash</span><pre><span class="cm"># View logs for all services (live)</span>
+<span class="cmd">docker compose</span> logs -f
+
+<span class="cm"># View logs for a specific service</span>
+<span class="cmd">docker compose</span> logs -f inventory-api
+
+<span class="cm"># Restart a single service</span>
+<span class="cmd">docker compose</span> restart inventory-api
+
+<span class="cm"># Rebuild and redeploy a single service (zero-downtime not guaranteed)</span>
+<span class="cmd">docker compose</span> build inventory-api
+<span class="cmd">docker compose</span> up -d --no-deps inventory-api
+
+<span class="cm"># Stop all services (preserves volumes)</span>
+<span class="cmd">docker compose</span> down
+
+<span class="cm"># Stop and remove all data volumes (DESTRUCTIVE — deletes database)</span>
+<span class="cmd">docker compose</span> down -v
+
+<span class="cm"># Check resource usage</span>
+<span class="cmd">docker stats</span>
+
+<span class="cm"># Execute a command inside a running container</span>
+<span class="cmd">docker exec</span> -it retailerp-sqlserver /bin/bash
+
+<span class="cm"># Scale a stateless service (only for stateless services)</span>
+<span class="cmd">docker compose</span> up -d --scale product-api=2</pre></div>
+
+    <hr class="divider" />
+
+    <h2>Volumes &amp; Data Persistence</h2>
+    <p>The following Docker named volumes persist data between container restarts:</p>
+    <table class="no-break">
+      <thead><tr><th>Volume Name</th><th>Service</th><th>Contents</th></tr></thead>
+      <tbody>
+        <tr><td class="td-mono">sqlserver-data</td><td>sqlserver</td><td>All database files (<code>/var/opt/mssql</code>)</td></tr>
+        <tr><td class="td-mono">redis-data</td><td>redis</td><td>Redis persistence snapshots (<code>/data</code>)</td></tr>
+        <tr><td class="td-mono">prometheus-data</td><td>prometheus</td><td>Metrics time-series data</td></tr>
+        <tr><td class="td-mono">grafana-data</td><td>grafana</td><td>Dashboard definitions and settings</td></tr>
+      </tbody>
+    </table>
+
+    <div class="code-block"><span class="code-block-label">bash — backup SQL Server data</span><pre><span class="cm"># Backup the SQL Server database to a local file</span>
+<span class="cmd">docker exec</span> retailerp-sqlserver \
+  /opt/mssql-tools18/bin/sqlcmd \
+  -S localhost -U sa -P 'RetailERP@2024!' -C \
+  -Q "BACKUP DATABASE RetailERP TO DISK='/var/opt/mssql/backup/RetailERP.bak' WITH INIT"
+
+<span class="cm"># Copy backup from container to host</span>
+<span class="cmd">docker cp</span> retailerp-sqlserver:/var/opt/mssql/backup/RetailERP.bak ./RetailERP.bak</pre></div>
+
+    <hr class="divider" />
+
+    <h2>Production Hardening for Docker</h2>
+    <ul>
+      <li>Use <strong>Docker secrets</strong> or an external secrets manager (HashiCorp Vault, AWS Secrets Manager) instead of plain <code>.env</code> files.</li>
+      <li>Replace the shared SA password with a dedicated application database user with minimal privileges.</li>
+      <li>Add a reverse proxy (Nginx, Traefik, or Caddy) in front of the frontend and gateway containers to handle SSL termination.</li>
+      <li>Set <code>ASPNETCORE_ENVIRONMENT=Production</code> in all microservice containers (disables Swagger UI and developer error pages).</li>
+      <li>Enable Redis password authentication and set <code>--requirepass</code> in the Redis command.</li>
+      <li>Configure log drivers (<code>json-file</code> with rotation, or forward to a centralized log system) to prevent disk fill.</li>
+      <li>Use container resource limits (<code>mem_limit</code>, <code>cpus</code>) to prevent any one service from exhausting host resources.</li>
+      <li>Generate a strong JWT secret: <code>openssl rand -base64 48</code>.</li>
+    </ul>
+    <div class="code-block"><span class="code-block-label">docker-compose.override.yml — production limits example</span><pre><span class="kw">services</span>:
+  <span class="kw">inventory-api</span>:
+    <span class="kw">deploy</span>:
+      <span class="kw">resources</span>:
+        <span class="kw">limits</span>:
+          <span class="kw">cpus</span>: <span class="st">'1.0'</span>
+          <span class="kw">memory</span>: <span class="st">512M</span>
+        <span class="kw">reservations</span>:
+          <span class="kw">memory</span>: <span class="st">256M</span>
+    <span class="kw">logging</span>:
+      <span class="kw">driver</span>: <span class="st">"json-file"</span>
+      <span class="kw">options</span>:
+        <span class="kw">max-size</span>: <span class="st">"50m"</span>
+        <span class="kw">max-file</span>: <span class="st">"5"</span></pre></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CHAPTER 3 — IIS DEPLOYMENT                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 3</div>
+    <div class="chapter-title">IIS Deployment (Windows Server)</div>
+    <div class="chapter-subtitle">Host all services on Internet Information Services — suited for Windows Server environments without Docker</div>
+  </div>
+  <div class="chapter-body">
+
+    <h2>Prerequisites &amp; Windows Features</h2>
+    <table class="no-break">
+      <thead><tr><th>Requirement</th><th>Version / Details</th><th>How to Install</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Windows Server</strong></td><td>2019 or 2022</td><td>—</td></tr>
+        <tr><td><strong>IIS</strong></td><td>10.0</td><td>Server Manager → Add Roles → Web Server (IIS)</td></tr>
+        <tr><td><strong>.NET Hosting Bundle</strong></td><td>8.0 (includes ASP.NET Core Runtime + IIS module)</td><td>Download from <code>dotnet.microsoft.com/download</code></td></tr>
+        <tr><td><strong>Node.js</strong></td><td>20 LTS</td><td>For running Next.js standalone server</td></tr>
+        <tr><td><strong>SQL Server</strong></td><td>2019 or 2022</td><td>Standard or Express edition</td></tr>
+        <tr><td><strong>Redis for Windows</strong></td><td>7.x (Memurai or WSL2)</td><td>Memurai: <code>memurai.com</code></td></tr>
+        <tr><td><strong>ARR + URL Rewrite</strong></td><td>IIS modules</td><td>Web Platform Installer or manual MSI</td></tr>
+        <tr><td><strong>.NET SDK 8.0</strong></td><td>For publishing</td><td>On the build machine</td></tr>
+      </tbody>
+    </table>
+
+    <h4>Enable required IIS features (PowerShell — run as Administrator)</h4>
+    <div class="code-block"><span class="code-block-label">PowerShell — run as Administrator</span><pre><span class="cm"># Enable IIS with common features</span>
+<span class="cmd">Enable-WindowsOptionalFeature</span> -Online -FeatureName `
+  IIS-WebServerRole, IIS-WebServer, IIS-CommonHttpFeatures,
+  IIS-HttpErrors, IIS-ApplicationDevelopment,
+  IIS-NetFxExtensibility45, IIS-ASPNET45,
+  IIS-ISAPIExtensions, IIS-ISAPIFilter,
+  IIS-DefaultDocument, IIS-DirectoryBrowsing,
+  IIS-StaticContent, IIS-HttpCompressionStatic,
+  IIS-RequestFiltering, IIS-HttpLogging,
+  IIS-ManagementConsole -All
+
+<span class="cm"># Verify IIS is running</span>
+<span class="cmd">Get-Service</span> W3SVC</pre></div>
+
+    <hr class="divider" />
+
+    <h2>Step 1 — SQL Server Setup</h2>
+    <ol class="steps">
+      <li><div class="step-body">Install SQL Server 2022 (Standard or Developer edition).</div></li>
+      <li><div class="step-body">Enable <strong>SQL Server Authentication</strong> mode (Mixed Mode) and set the <code>sa</code> password to <code>RetailERP@2024!</code> (or your chosen password).</div></li>
+      <li><div class="step-body">Create the database and run all initialization scripts from the <code>database/</code> folder in order:</div></li>
+    </ol>
+    <div class="code-block"><span class="code-block-label">PowerShell — run SQL scripts</span><pre><span class="kw">$server</span>   = <span class="st">"localhost"</span>
+<span class="kw">$user</span>     = <span class="st">"sa"</span>
+<span class="kw">$password</span> = <span class="st">"RetailERP@2024!"</span>
+<span class="kw">$dbname</span>   = <span class="st">"RetailERP"</span>
+<span class="kw">$sqlcmd</span>   = <span class="st">"sqlcmd"</span>
+
+<span class="cm"># Create database</span>
+<span class="cmd">&amp; $sqlcmd</span> -S <span class="kw">$server</span> -U <span class="kw">$user</span> -P <span class="kw">$password</span> `
+  -Q <span class="st">"IF NOT EXISTS (SELECT * FROM sys.databases WHERE name='$dbname') CREATE DATABASE $dbname"</span>
+
+<span class="cm"># Run all scripts in order</span>
+<span class="kw">$scriptFolders</span> = @(<span class="st">'schemas'</span>, <span class="st">'tables'</span>, <span class="st">'indexes'</span>, <span class="st">'stored-procedures'</span>, <span class="st">'seed-data'</span>)
+<span class="kw">foreach</span> (<span class="kw">$folder</span> <span class="kw">in</span> <span class="kw">$scriptFolders</span>) {
+  <span class="kw">Get-ChildItem</span> ".\database\$folder\*.sql" | <span class="cmd">ForEach-Object</span> {
+    <span class="cmd">Write-Host</span> <span class="st">"Running $_"</span>
+    <span class="cmd">&amp; $sqlcmd</span> -S <span class="kw">$server</span> -U <span class="kw">$user</span> -P <span class="kw">$password</span> -d <span class="kw">$dbname</span> -i <span class="kw">$_</span>.FullName
+  }
+}</pre></div>
+
+    <hr class="divider" />
+
+    <h2>Step 2 — Redis Setup</h2>
+    <p>For Windows Server, use <strong>Memurai</strong> (Redis-compatible, native Windows service) or run Redis via WSL2.</p>
+    <div class="code-block"><span class="code-block-label">PowerShell — install Memurai as Windows Service</span><pre><span class="cm"># Download Memurai from memurai.com/get-memurai</span>
+<span class="cm"># After installation, it registers as a Windows Service automatically</span>
+
+<span class="cm"># Verify Redis is running</span>
+<span class="cmd">redis-cli</span> ping
+<span class="cm"># Expected response: PONG</span>
+
+<span class="cm"># Check service status</span>
+<span class="cmd">Get-Service</span> Memurai</pre></div>
+
+    <hr class="divider" />
+
+    <h2>Step 3 — Publish Microservices</h2>
+    <p>Publish each microservice as a self-contained deployment from the build machine (requires .NET SDK 8.0).</p>
+    <div class="code-block"><span class="code-block-label">PowerShell — publish all services</span><pre><span class="kw">$services</span> = @(
+  @{ <span class="kw">name</span>=<span class="st">'Auth'</span>;       <span class="kw">dir</span>=<span class="st">'auth'</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Product'</span>;    <span class="kw">dir</span>=<span class="st">'product'</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Inventory'</span>;  <span class="kw">dir</span>=<span class="st">'inventory'</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Order'</span>;      <span class="kw">dir</span>=<span class="st">'order'</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Production'</span>; <span class="kw">dir</span>=<span class="st">'production'</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Billing'</span>;    <span class="kw">dir</span>=<span class="st">'billing'</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Reporting'</span>;  <span class="kw">dir</span>=<span class="st">'reporting'</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Gateway'</span>;    <span class="kw">dir</span>=<span class="st">'gateway'</span> }
+)
+
+<span class="kw">foreach</span> (<span class="kw">$svc</span> <span class="kw">in</span> <span class="kw">$services</span>) {
+  <span class="kw">$proj</span> = <span class="kw">if</span> (<span class="kw">$svc</span>.name -<span class="kw">eq</span> <span class="st">'Gateway'</span>) {
+    <span class="st">"src\services\gateway\RetailERP.Gateway.csproj"</span>
+  } <span class="kw">else</span> {
+    <span class="st">"src\services\$($svc.dir)\RetailERP.$($svc.name).API\RetailERP.$($svc.name).API.csproj"</span>
+  }
+  <span class="cmd">dotnet publish</span> <span class="kw">$proj</span> `
+    -c Release `
+    -r win-x64 `
+    --self-contained <span class="kw">false</span> `
+    -o <span class="st">"C:\RetailERP\services\$($svc.name)"</span>
+  <span class="cmd">Write-Host</span> <span class="st">"Published $($svc.name)"</span>
+}</pre></div>
+
+    <hr class="divider" />
+
+    <h2>Step 4 — IIS Application Pools &amp; Sites</h2>
+    <p>Create one Application Pool per service. All pools should use <strong>No Managed Code</strong> (ASP.NET Core runs out-of-process).</p>
+
+    <div class="code-block"><span class="code-block-label">PowerShell — create app pools and sites</span><pre><span class="cmd">Import-Module</span> WebAdministration
+
+<span class="kw">$services</span> = @(
+  @{ <span class="kw">name</span>=<span class="st">'Auth'</span>;       <span class="kw">port</span>=<span class="nm">5001</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Product'</span>;    <span class="kw">port</span>=<span class="nm">5002</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Inventory'</span>;  <span class="kw">port</span>=<span class="nm">5003</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Order'</span>;      <span class="kw">port</span>=<span class="nm">5004</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Production'</span>; <span class="kw">port</span>=<span class="nm">5005</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Billing'</span>;    <span class="kw">port</span>=<span class="nm">5006</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Reporting'</span>;  <span class="kw">port</span>=<span class="nm">5007</span> },
+  @{ <span class="kw">name</span>=<span class="st">'Gateway'</span>;    <span class="kw">port</span>=<span class="nm">5000</span> }
+)
+
+<span class="kw">foreach</span> (<span class="kw">$svc</span> <span class="kw">in</span> <span class="kw">$services</span>) {
+  <span class="kw">$poolName</span> = <span class="st">"RetailERP-$($svc.name)"</span>
+  <span class="kw">$siteName</span> = <span class="st">"RetailERP-$($svc.name)"</span>
+  <span class="kw">$physPath</span> = <span class="st">"C:\RetailERP\services\$($svc.name)"</span>
+
+  <span class="cm"># Create App Pool (No Managed Code for ASP.NET Core)</span>
+  <span class="cmd">New-WebAppPool</span> -Name <span class="kw">$poolName</span>
+  <span class="cmd">Set-ItemProperty</span> "IIS:\AppPools\$poolName" `
+    -Name managedRuntimeVersion -Value <span class="st">""</span>
+
+  <span class="cm"># Create IIS Site</span>
+  <span class="cmd">New-Website</span> -Name <span class="kw">$siteName</span> `
+    -ApplicationPool <span class="kw">$poolName</span> `
+    -PhysicalPath <span class="kw">$physPath</span> `
+    -Port <span class="kw">$svc</span>.port `
+    -Force
+}</pre></div>
+
+    <hr class="divider" />
+
+    <h2>Step 5 — web.config for Each Microservice</h2>
+    <p>Each published microservice needs a <code>web.config</code> in its publish directory. The ASP.NET Core module (ANCM) is installed by the .NET Hosting Bundle.</p>
+
+    <div class="code-block"><span class="code-block-label">C:\RetailERP\services\Inventory\web.config</span><pre><span class="pu">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span>
+<span class="kw">&lt;configuration&gt;</span>
+  <span class="kw">&lt;system.webServer&gt;</span>
+    <span class="kw">&lt;handlers&gt;</span>
+      <span class="kw">&lt;add</span> <span class="pr">name</span>=<span class="st">"aspNetCore"</span>
+           <span class="pr">path</span>=<span class="st">"*"</span>
+           <span class="pr">verb</span>=<span class="st">"*"</span>
+           <span class="pr">modules</span>=<span class="st">"AspNetCoreModuleV2"</span>
+           <span class="pr">resourceType</span>=<span class="st">"Unspecified"</span> <span class="kw">/&gt;</span>
+    <span class="kw">&lt;/handlers&gt;</span>
+    <span class="kw">&lt;aspNetCore</span>
+        <span class="pr">processPath</span>=<span class="st">"dotnet"</span>
+        <span class="pr">arguments</span>=<span class="st">".\RetailERP.Inventory.API.dll"</span>
+        <span class="pr">stdoutLogEnabled</span>=<span class="st">"true"</span>
+        <span class="pr">stdoutLogFile</span>=<span class="st">".\logs\stdout"</span>
+        <span class="pr">hostingModel</span>=<span class="st">"inprocess"</span>&gt;
+      <span class="kw">&lt;environmentVariables&gt;</span>
+        <span class="kw">&lt;environmentVariable</span> <span class="pr">name</span>=<span class="st">"ASPNETCORE_ENVIRONMENT"</span> <span class="pr">value</span>=<span class="st">"Production"</span> <span class="kw">/&gt;</span>
+        <span class="kw">&lt;environmentVariable</span> <span class="pr">name</span>=<span class="st">"ConnectionStrings__DefaultConnection"</span>
+                             <span class="pr">value</span>=<span class="st">"Server=localhost;Database=RetailERP;User Id=retailerp_app;Password=AppPass@2024!;TrustServerCertificate=true"</span> <span class="kw">/&gt;</span>
+        <span class="kw">&lt;environmentVariable</span> <span class="pr">name</span>=<span class="st">"Jwt__Secret"</span>
+                             <span class="pr">value</span>=<span class="st">"YOUR-PRODUCTION-JWT-SECRET-HERE"</span> <span class="kw">/&gt;</span>
+        <span class="kw">&lt;environmentVariable</span> <span class="pr">name</span>=<span class="st">"Jwt__Issuer"</span>    <span class="pr">value</span>=<span class="st">"RetailERP.Auth"</span> <span class="kw">/&gt;</span>
+        <span class="kw">&lt;environmentVariable</span> <span class="pr">name</span>=<span class="st">"Jwt__Audience"</span>  <span class="pr">value</span>=<span class="st">"RetailERP.Client"</span> <span class="kw">/&gt;</span>
+      <span class="kw">&lt;/environmentVariables&gt;</span>
+    <span class="kw">&lt;/aspNetCore&gt;</span>
+  <span class="kw">&lt;/system.webServer&gt;</span>
+<span class="kw">&lt;/configuration&gt;</span></pre></div>
+
+    <div class="callout info">
+      <div class="callout-icon">ℹ️</div>
+      <div class="callout-body">
+        <div class="callout-title">Repeat for Each Service</div>
+        <div class="callout-text">Create a similar <code>web.config</code> in each service's publish folder, adjusting the <strong>arguments</strong> value to match the DLL name: <code>RetailERP.Auth.API.dll</code>, <code>RetailERP.Product.API.dll</code>, <code>RetailERP.Gateway.dll</code>, etc. Create a <code>logs\</code> subfolder in each service directory for stdout logging.</div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <h2>Step 6 — Deploy API Gateway</h2>
+    <p>The API Gateway (YARP) is an ASP.NET Core app deployed identically to the microservices. It listens on port 5000 and routes requests to each microservice on localhost.</p>
+
+    <div class="code-block"><span class="code-block-label">C:\RetailERP\services\Gateway\web.config</span><pre><span class="pu">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span>
+<span class="kw">&lt;configuration&gt;</span>
+  <span class="kw">&lt;system.webServer&gt;</span>
+    <span class="kw">&lt;handlers&gt;</span>
+      <span class="kw">&lt;add</span> <span class="pr">name</span>=<span class="st">"aspNetCore"</span> <span class="pr">path</span>=<span class="st">"*"</span> <span class="pr">verb</span>=<span class="st">"*"</span>
+           <span class="pr">modules</span>=<span class="st">"AspNetCoreModuleV2"</span> <span class="pr">resourceType</span>=<span class="st">"Unspecified"</span> <span class="kw">/&gt;</span>
+    <span class="kw">&lt;/handlers&gt;</span>
+    <span class="kw">&lt;aspNetCore</span>
+        <span class="pr">processPath</span>=<span class="st">"dotnet"</span>
+        <span class="pr">arguments</span>=<span class="st">".\RetailERP.Gateway.dll"</span>
+        <span class="pr">stdoutLogEnabled</span>=<span class="st">"true"</span>
+        <span class="pr">stdoutLogFile</span>=<span class="st">".\logs\stdout"</span>
+        <span class="pr">hostingModel</span>=<span class="st">"inprocess"</span>&gt;
+      <span class="kw">&lt;environmentVariables&gt;</span>
+        <span class="kw">&lt;environmentVariable</span> <span class="pr">name</span>=<span class="st">"ASPNETCORE_ENVIRONMENT"</span> <span class="pr">value</span>=<span class="st">"Production"</span> <span class="kw">/&gt;</span>
+        <span class="kw">&lt;environmentVariable</span> <span class="pr">name</span>=<span class="st">"Cors__Origins__0"</span> <span class="pr">value</span>=<span class="st">"https://yourdomain.com"</span> <span class="kw">/&gt;</span>
+      <span class="kw">&lt;/environmentVariables&gt;</span>
+    <span class="kw">&lt;/aspNetCore&gt;</span>
+  <span class="kw">&lt;/system.webServer&gt;</span>
+<span class="kw">&lt;/configuration&gt;</span></pre></div>
+
+    <hr class="divider" />
+
+    <h2>Step 7 — Deploy Next.js Frontend</h2>
+    <p>Next.js with <code>output: "standalone"</code> produces a <code>.next/standalone</code> folder that contains a <code>server.js</code> Node.js server. On IIS, this is hosted via the <strong>iisnode</strong> module which proxies to Node.js.</p>
+
+    <h4>Build the frontend</h4>
+    <div class="code-block"><span class="code-block-label">PowerShell — build Next.js</span><pre><span class="cmd">cd</span> src\frontend
+
+<span class="cm"># Set production API URL</span>
+<span class="kw">$env:NEXT_PUBLIC_API_URL</span> = <span class="st">"http://localhost:5000"</span>
+
+<span class="cmd">npm ci</span>
+<span class="cmd">npm run build</span>
+
+<span class="cm"># Copy standalone output to deployment folder</span>
+<span class="cmd">xcopy</span> /E /I /Y .next\standalone C:\RetailERP\frontend
+<span class="cmd">xcopy</span> /E /I /Y .next\static     C:\RetailERP\frontend\.next\static
+<span class="cmd">xcopy</span> /E /I /Y public           C:\RetailERP\frontend\public</pre></div>
+
+    <h4>Install iisnode and create IIS site for frontend</h4>
+    <div class="code-block"><span class="code-block-label">PowerShell</span><pre><span class="cm"># Install iisnode (download from github.com/Azure/iisnode)</span>
+<span class="cm"># Then create IIS site for frontend on port 3000</span>
+<span class="cmd">New-WebAppPool</span> -Name <span class="st">"RetailERP-Frontend"</span>
+<span class="cmd">Set-ItemProperty</span> <span class="st">"IIS:\AppPools\RetailERP-Frontend"</span> `
+  -Name managedRuntimeVersion -Value <span class="st">""</span>
+
+<span class="cmd">New-Website</span> -Name <span class="st">"RetailERP-Frontend"</span> `
+  -ApplicationPool <span class="st">"RetailERP-Frontend"</span> `
+  -PhysicalPath <span class="st">"C:\RetailERP\frontend"</span> `
+  -Port <span class="nm">3000</span></pre></div>
+
+    <div class="code-block"><span class="code-block-label">C:\RetailERP\frontend\web.config — iisnode configuration</span><pre><span class="pu">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span>
+<span class="kw">&lt;configuration&gt;</span>
+  <span class="kw">&lt;system.webServer&gt;</span>
+    <span class="kw">&lt;handlers&gt;</span>
+      <span class="kw">&lt;add</span> <span class="pr">name</span>=<span class="st">"iisnode"</span>
+           <span class="pr">path</span>=<span class="st">"server.js"</span>
+           <span class="pr">verb</span>=<span class="st">"*"</span>
+           <span class="pr">modules</span>=<span class="st">"iisnode"</span> <span class="kw">/&gt;</span>
+    <span class="kw">&lt;/handlers&gt;</span>
+    <span class="kw">&lt;rewrite&gt;</span>
+      <span class="kw">&lt;rules&gt;</span>
+        <span class="kw">&lt;rule</span> <span class="pr">name</span>=<span class="st">"Node"</span> <span class="pr">stopProcessing</span>=<span class="st">"true"</span>&gt;
+          <span class="kw">&lt;match</span> <span class="pr">url</span>=<span class="st">".*"</span> <span class="kw">/&gt;</span>
+          <span class="kw">&lt;conditions</span> <span class="pr">logicalGrouping</span>=<span class="st">"MatchAll"</span> <span class="pr">trackAllCaptures</span>=<span class="st">"false"</span>&gt;
+            <span class="kw">&lt;add</span> <span class="pr">input</span>=<span class="st">"{REQUEST_FILENAME}"</span> <span class="pr">matchType</span>=<span class="st">"IsFile"</span> <span class="pr">negate</span>=<span class="st">"true"</span> <span class="kw">/&gt;</span>
+          <span class="kw">&lt;/conditions&gt;</span>
+          <span class="kw">&lt;action</span> <span class="pr">type</span>=<span class="st">"Rewrite"</span> <span class="pr">url</span>=<span class="st">"server.js"</span> <span class="kw">/&gt;</span>
+        <span class="kw">&lt;/rule&gt;</span>
+      <span class="kw">&lt;/rules&gt;</span>
+    <span class="kw">&lt;/rewrite&gt;</span>
+    <span class="kw">&lt;iisnode</span>
+      <span class="pr">nodeProcessCommandLine</span>=<span class="st">"node"</span>
+      <span class="pr">loggingEnabled</span>=<span class="st">"true"</span>
+      <span class="pr">logDirectory</span>=<span class="st">"logs\"</span>
+      <span class="pr">debuggingEnabled</span>=<span class="st">"false"</span> <span class="kw">/&gt;</span>
+  <span class="kw">&lt;/system.webServer&gt;</span>
+  <span class="kw">&lt;appSettings&gt;</span>
+    <span class="kw">&lt;add</span> <span class="pr">key</span>=<span class="st">"PORT"</span>                    <span class="pr">value</span>=<span class="st">"3000"</span> <span class="kw">/&gt;</span>
+    <span class="kw">&lt;add</span> <span class="pr">key</span>=<span class="st">"NEXT_PUBLIC_API_URL"</span>     <span class="pr">value</span>=<span class="st">"http://localhost:5000"</span> <span class="kw">/&gt;</span>
+  <span class="kw">&lt;/appSettings&gt;</span>
+<span class="kw">&lt;/configuration&gt;</span></pre></div>
+
+    <div class="callout tip">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <div class="callout-title">Alternative: Run Next.js as a Windows Service</div>
+        <div class="callout-text">Instead of iisnode, you can run <code>node server.js</code> as a Windows Service using <strong>NSSM</strong> (Non-Sucking Service Manager). This is simpler and avoids iisnode complexity. Use IIS only as a reverse proxy in front of the Node.js process on port 3000.</div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <h2>Step 8 — IIS Reverse Proxy (ARR)</h2>
+    <p>Use Application Request Routing (ARR) to expose the frontend on port 80/443 and proxy API requests to the gateway.</p>
+
+    <div class="code-block"><span class="code-block-label">C:\inetpub\wwwroot (or dedicated site)\web.config — ARR reverse proxy</span><pre><span class="pu">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span>
+<span class="kw">&lt;configuration&gt;</span>
+  <span class="kw">&lt;system.webServer&gt;</span>
+    <span class="kw">&lt;rewrite&gt;</span>
+      <span class="kw">&lt;rules&gt;</span>
+        <span class="cm">&lt;!-- Proxy /api/* to the YARP Gateway on port 5000 --&gt;</span>
+        <span class="kw">&lt;rule</span> <span class="pr">name</span>=<span class="st">"API Gateway Proxy"</span> <span class="pr">stopProcessing</span>=<span class="st">"true"</span>&gt;
+          <span class="kw">&lt;match</span> <span class="pr">url</span>=<span class="st">"^api/(.*)"</span> <span class="kw">/&gt;</span>
+          <span class="kw">&lt;action</span> <span class="pr">type</span>=<span class="st">"Rewrite"</span>
+                  <span class="pr">url</span>=<span class="st">"http://localhost:5000/api/{R:1}"</span> <span class="kw">/&gt;</span>
+        <span class="kw">&lt;/rule&gt;</span>
+        <span class="cm">&lt;!-- Proxy all other traffic to Next.js frontend on port 3000 --&gt;</span>
+        <span class="kw">&lt;rule</span> <span class="pr">name</span>=<span class="st">"Frontend Proxy"</span> <span class="pr">stopProcessing</span>=<span class="st">"true"</span>&gt;
+          <span class="kw">&lt;match</span> <span class="pr">url</span>=<span class="st">"(.*)"</span> <span class="kw">/&gt;</span>
+          <span class="kw">&lt;action</span> <span class="pr">type</span>=<span class="st">"Rewrite"</span>
+                  <span class="pr">url</span>=<span class="st">"http://localhost:3000/{R:1}"</span> <span class="kw">/&gt;</span>
+        <span class="kw">&lt;/rule&gt;</span>
+      <span class="kw">&lt;/rules&gt;</span>
+    <span class="kw">&lt;/rewrite&gt;</span>
+    <span class="kw">&lt;security&gt;</span>
+      <span class="kw">&lt;requestFiltering&gt;</span>
+        <span class="kw">&lt;requestLimits</span> <span class="pr">maxAllowedContentLength</span>=<span class="st">"52428800"</span> <span class="kw">/&gt;</span> <span class="cm">&lt;!-- 50 MB --&gt;</span>
+      <span class="kw">&lt;/requestFiltering&gt;</span>
+    <span class="kw">&lt;/security&gt;</span>
+  <span class="kw">&lt;/system.webServer&gt;</span>
+<span class="kw">&lt;/configuration&gt;</span></pre></div>
+
+    <div class="callout warning">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <div class="callout-title">Enable ARR Proxy</div>
+        <div class="callout-text">After installing ARR, you must enable the proxy in IIS Manager: open <strong>Application Request Routing Cache</strong> at the server level → click <strong>Server Proxy Settings</strong> → check <strong>Enable proxy</strong> → click Apply.</div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <h2>Step 9 — SSL / TLS Configuration</h2>
+    <p>Bind an SSL certificate to the main IIS site (port 443) and redirect HTTP to HTTPS.</p>
+
+    <div class="code-block"><span class="code-block-label">PowerShell — bind SSL certificate</span><pre><span class="cm"># Import your certificate (.pfx) into the Windows Certificate Store</span>
+<span class="kw">$cert</span> = <span class="cmd">Import-PfxCertificate</span> `
+  -FilePath <span class="st">"C:\certs\retailerp.pfx"</span> `
+  -CertStoreLocation <span class="st">"Cert:\LocalMachine\My"</span> `
+  -Password (<span class="cmd">ConvertTo-SecureString</span> <span class="st">"certPassword"</span> -AsPlainText -Force)
+
+<span class="cm"># Bind HTTPS to port 443</span>
+<span class="cmd">New-WebBinding</span> -Name <span class="st">"RetailERP-Main"</span> `
+  -Protocol <span class="st">"https"</span> -Port <span class="nm">443</span> -HostHeader <span class="st">"yourdomain.com"</span>
+
+<span class="kw">$sslBinding</span> = <span class="cmd">Get-Item</span> <span class="st">"IIS:\SslBindings\0.0.0.0!443"</span> <span class="kw">-ErrorAction</span> SilentlyContinue
+<span class="kw">if</span> (-<span class="kw">not</span> <span class="kw">$sslBinding</span>) {
+  <span class="kw">$cert</span> | <span class="cmd">New-Item</span> <span class="st">"IIS:\SslBindings\0.0.0.0!443"</span>
+}</pre></div>
+
+    <div class="code-block"><span class="code-block-label">web.config — HTTP to HTTPS redirect (add to main site)</span><pre><span class="kw">&lt;rewrite&gt;</span>
+  <span class="kw">&lt;rules&gt;</span>
+    <span class="kw">&lt;rule</span> <span class="pr">name</span>=<span class="st">"HTTP to HTTPS"</span> <span class="pr">stopProcessing</span>=<span class="st">"true"</span>&gt;
+      <span class="kw">&lt;match</span> <span class="pr">url</span>=<span class="st">"(.*)"</span> <span class="kw">/&gt;</span>
+      <span class="kw">&lt;conditions&gt;</span>
+        <span class="kw">&lt;add</span> <span class="pr">input</span>=<span class="st">"{HTTPS}"</span> <span class="pr">pattern</span>=<span class="st">"off"</span> <span class="pr">ignoreCase</span>=<span class="st">"true"</span> <span class="kw">/&gt;</span>
+      <span class="kw">&lt;/conditions&gt;</span>
+      <span class="kw">&lt;action</span> <span class="pr">type</span>=<span class="st">"Redirect"</span>
+              <span class="pr">url</span>=<span class="st">"https://{HTTP_HOST}/{R:1}"</span>
+              <span class="pr">redirectType</span>=<span class="st">"Permanent"</span> <span class="kw">/&gt;</span>
+    <span class="kw">&lt;/rule&gt;</span>
+  <span class="kw">&lt;/rules&gt;</span>
+<span class="kw">&lt;/rewrite&gt;</span></pre></div>
+
+    <hr class="divider" />
+
+    <h2>Windows Service Alternative (no iisnode)</h2>
+    <p>Each microservice and the Next.js frontend can also be run as native Windows Services using <strong>NSSM</strong> (Non-Sucking Service Manager), avoiding IIS hosting entirely for the backend.</p>
+
+    <div class="code-block"><span class="code-block-label">PowerShell — register services with NSSM</span><pre><span class="cm"># Download nssm.exe from nssm.cc, place in C:\tools\nssm.exe</span>
+
+<span class="cm"># Register Inventory service</span>
+<span class="cmd">C:\tools\nssm.exe</span> install RetailERP-Inventory dotnet
+<span class="cmd">C:\tools\nssm.exe</span> set    RetailERP-Inventory AppParameters `
+  <span class="st">"C:\RetailERP\services\Inventory\RetailERP.Inventory.API.dll"</span>
+<span class="cmd">C:\tools\nssm.exe</span> set    RetailERP-Inventory AppDirectory `
+  <span class="st">"C:\RetailERP\services\Inventory"</span>
+<span class="cmd">C:\tools\nssm.exe</span> set    RetailERP-Inventory AppEnvironmentExtra `
+  <span class="st">"ASPNETCORE_ENVIRONMENT=Production"</span> `
+  <span class="st">"ASPNETCORE_URLS=http://localhost:5003"</span> `
+  <span class="st">"ConnectionStrings__DefaultConnection=Server=localhost;..."</span>
+<span class="cmd">C:\tools\nssm.exe</span> set    RetailERP-Inventory Start SERVICE_AUTO_START
+<span class="cmd">Start-Service</span> RetailERP-Inventory
+
+<span class="cm"># Register Next.js frontend</span>
+<span class="cmd">C:\tools\nssm.exe</span> install RetailERP-Frontend node
+<span class="cmd">C:\tools\nssm.exe</span> set    RetailERP-Frontend AppParameters `
+  <span class="st">"C:\RetailERP\frontend\server.js"</span>
+<span class="cmd">C:\tools\nssm.exe</span> set    RetailERP-Frontend AppDirectory `
+  <span class="st">"C:\RetailERP\frontend"</span>
+<span class="cmd">C:\tools\nssm.exe</span> set    RetailERP-Frontend AppEnvironmentExtra `
+  <span class="st">"PORT=3000"</span> `
+  <span class="st">"NEXT_PUBLIC_API_URL=http://localhost:5000"</span>
+<span class="cmd">C:\tools\nssm.exe</span> set    RetailERP-Frontend Start SERVICE_AUTO_START
+<span class="cmd">Start-Service</span> RetailERP-Frontend</pre></div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CHAPTER 4 — CONFIGURATION REFERENCE                             -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 4</div>
+    <div class="chapter-title">Configuration Reference</div>
+    <div class="chapter-subtitle">appsettings.json, environment variables, and JWT configuration per deployment target</div>
+  </div>
+  <div class="chapter-body">
+
+    <h2>appsettings per Environment</h2>
+    <p>ASP.NET Core loads configuration in order: <code>appsettings.json</code> → <code>appsettings.{Environment}.json</code> → environment variables. Environment variables always take highest precedence and use <code>__</code> as the section separator.</p>
+
+    <table class="no-break">
+      <thead><tr><th>Setting Key</th><th>Development Value</th><th>Docker / Production Value</th></tr></thead>
+      <tbody>
+        <tr><td class="td-mono">ASPNETCORE_ENVIRONMENT</td><td class="td-mono">Development</td><td class="td-mono">Docker / Production</td></tr>
+        <tr><td class="td-mono">ConnectionStrings__DefaultConnection</td><td>localhost, Trusted_Connection</td><td>sqlserver container / SQL Server host, SA auth</td></tr>
+        <tr><td class="td-mono">ASPNETCORE_URLS</td><td class="td-mono">http://localhost:5001</td><td class="td-mono">http://+:8080</td></tr>
+        <tr><td class="td-mono">Jwt__Secret</td><td>Dev secret (32+ chars)</td><td>Production secret from env var / secret store</td></tr>
+        <tr><td class="td-mono">Jwt__ExpiryInHours</td><td class="td-mono">1</td><td class="td-mono">8 (recommended for production)</td></tr>
+        <tr><td class="td-mono">Cors__Origins__0</td><td class="td-mono">http://localhost:3000</td><td>https://yourdomain.com</td></tr>
+        <tr><td class="td-mono">Serilog__MinimumLevel__Default</td><td class="td-mono">Information</td><td class="td-mono">Warning</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Frontend Environment Variables</h2>
+    <table class="no-break">
+      <thead><tr><th>Variable</th><th>Description</th><th>Docker Value</th><th>IIS/Production Value</th></tr></thead>
+      <tbody>
+        <tr><td class="td-mono">NEXT_PUBLIC_API_URL</td><td>Backend API gateway base URL</td><td class="td-mono">http://localhost:5000</td><td class="td-mono">https://yourdomain.com</td></tr>
+        <tr><td class="td-mono">NEXT_PUBLIC_APP_NAME</td><td>Application display name</td><td class="td-mono">EL CURIO</td><td class="td-mono">EL CURIO</td></tr>
+        <tr><td class="td-mono">PORT</td><td>Next.js server port (runtime only)</td><td class="td-mono">3000</td><td class="td-mono">3000</td></tr>
+        <tr><td class="td-mono">NODE_ENV</td><td>Node environment</td><td class="td-mono">production</td><td class="td-mono">production</td></tr>
+        <tr><td class="td-mono">NEXT_TELEMETRY_DISABLED</td><td>Disable Next.js telemetry</td><td class="td-mono">1</td><td class="td-mono">1</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warning">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <div class="callout-title">NEXT_PUBLIC_ Variables Are Baked In at Build Time</div>
+        <div class="callout-text">Variables prefixed with <code>NEXT_PUBLIC_</code> are embedded into the JavaScript bundle during <code>npm run build</code>. If you need to change the API URL after building, you must rebuild the frontend. For runtime-configurable URLs, use a server-side API route to fetch configuration.</div>
+      </div>
+    </div>
+
+    <h2>JWT &amp; Security Settings</h2>
+
+    <h4>Generating a Strong JWT Secret</h4>
+    <div class="code-block"><span class="code-block-label">bash / PowerShell</span><pre><span class="cm"># Linux / macOS</span>
+<span class="cmd">openssl</span> rand -base64 48
+
+<span class="cm"># PowerShell (Windows)</span>
+<span class="kw">[Convert]::ToBase64String</span>((<span class="cmd">New-Object</span> byte[] 48 | <span class="cmd">ForEach-Object</span> {
+  [System.Security.Cryptography.RandomNumberGenerator]::GetBytes(1)[0]
+}))</span>
+
+<span class="cm"># Expected output: a 64-character base64 string, e.g.:</span>
+<span class="cm"># k9QwZ3mP7xRt2vN6jH8eY4cL5aG1bF0dI3nO9uM7sX2pW...</span></pre></div>
+
+    <table class="no-break">
+      <thead><tr><th>Setting</th><th>Value</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="td-mono">Jwt__Secret</td><td>Min 32 chars, 48+ recommended</td><td>Same value across all services</td></tr>
+        <tr><td class="td-mono">Jwt__Issuer</td><td class="td-mono">RetailERP.Auth</td><td>Must match exactly in all services</td></tr>
+        <tr><td class="td-mono">Jwt__Audience</td><td class="td-mono">RetailERP.Client</td><td>Must match exactly in all services</td></tr>
+        <tr><td class="td-mono">Jwt__ExpiryInHours</td><td class="td-mono">1–24</td><td>Shorter = more secure; users re-authenticate more often</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout danger">
+      <div class="callout-icon">🔐</div>
+      <div class="callout-body">
+        <div class="callout-title">JWT Secret Must Be Identical Across All Services</div>
+        <div class="callout-text">Every microservice validates JWT tokens using the same secret. If any service has a different <code>Jwt__Secret</code>, it will reject tokens issued by the Auth service, causing 401 Unauthorized errors. Use environment variables or a shared secret store to ensure all services share the exact same value.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CHAPTER 5 — TROUBLESHOOTING                                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 5</div>
+    <div class="chapter-title">Troubleshooting</div>
+    <div class="chapter-subtitle">Common issues and their resolutions for Docker and IIS deployments</div>
+  </div>
+  <div class="chapter-body">
+
+    <h2>Docker Common Issues</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Resolution</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Container exits immediately</strong></td>
+          <td>Missing DLL, wrong SERVICE_NAME build arg, or startup crash</td>
+          <td>Run <code>docker compose logs &lt;service&gt;</code> for the error. Verify build args match the actual project name.</td>
+        </tr>
+        <tr>
+          <td><strong>SQL Server stays "starting"</strong></td>
+          <td>Insufficient memory (SQL Server needs 2 GB minimum)</td>
+          <td>Increase Docker Desktop memory limit to 8 GB or more.</td>
+        </tr>
+        <tr>
+          <td><strong>401 on all API calls</strong></td>
+          <td>JWT secret mismatch between auth and other services, or CORS misconfiguration</td>
+          <td>Verify <code>Jwt__Secret</code> is identical in all service containers. Check <code>Cors__Origins</code> in gateway config.</td>
+        </tr>
+        <tr>
+          <td><strong>Frontend shows "Network Error"</strong></td>
+          <td><code>NEXT_PUBLIC_API_URL</code> points to wrong host</td>
+          <td>Rebuild frontend image with correct env var. In Docker, the browser calls <code>localhost:5000</code> directly; ensure gateway port is exposed.</td>
+        </tr>
+        <tr>
+          <td><strong>db-init container keeps restarting</strong></td>
+          <td>SQL Server not healthy yet when db-init starts</td>
+          <td>db-init depends on <code>service_healthy</code>; if SQL Server health check fails, increase <code>retries</code> or <code>start_period</code> in <code>docker-compose.yml</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Port already in use</strong></td>
+          <td>Another process holds the port</td>
+          <td>Run <code>netstat -ano | findstr :5001</code> (Windows) or <code>ss -tlnp | grep 5001</code> (Linux) to find and stop the conflicting process.</td>
+        </tr>
+        <tr>
+          <td><strong>Images fail to build</strong></td>
+          <td>NuGet restore failures or no internet access</td>
+          <td>Run <code>docker compose build --no-cache --progress=plain</code> for full output. Check proxy settings if on a corporate network.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>IIS Common Issues</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Resolution</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>HTTP 500.19 — Config error</strong></td>
+          <td>ANCM not installed or web.config syntax error</td>
+          <td>Reinstall the .NET 8 Hosting Bundle. Validate web.config XML syntax.</td>
+        </tr>
+        <tr>
+          <td><strong>HTTP 502.5 — Process failure</strong></td>
+          <td>The dotnet process crashed on startup</td>
+          <td>Enable <code>stdoutLogEnabled="true"</code> in web.config and check the <code>logs\stdout_*.log</code> file for the exception.</td>
+        </tr>
+        <tr>
+          <td><strong>HTTP 500.30 — Start failure</strong></td>
+          <td>Missing connection string, wrong DLL name, or missing .NET runtime</td>
+          <td>Verify the <code>arguments</code> value in web.config matches the actual DLL filename. Verify .NET 8 runtime is installed.</td>
+        </tr>
+        <tr>
+          <td><strong>Application Pool stops</strong></td>
+          <td>Rapid failure restarts (5 failures in 5 minutes triggers stop)</td>
+          <td>Open IIS Manager → Application Pools → set <strong>Rapid Fail Protection</strong> to disabled during debugging. Fix the underlying startup error first.</td>
+        </tr>
+        <tr>
+          <td><strong>Frontend shows blank page</strong></td>
+          <td>iisnode not installed or Node.js not found</td>
+          <td>Verify iisnode.dll is registered in IIS. Ensure Node.js path is in the system PATH variable. Restart IIS (<code>iisreset</code>).</td>
+        </tr>
+        <tr>
+          <td><strong>ARR not proxying</strong></td>
+          <td>Proxy not enabled in ARR server settings</td>
+          <td>IIS Manager → server root → Application Request Routing Cache → Server Proxy Settings → check <strong>Enable proxy</strong>.</td>
+        </tr>
+        <tr>
+          <td><strong>CORS errors in browser</strong></td>
+          <td>Frontend domain not in <code>Cors__Origins</code></td>
+          <td>Add the production domain to <code>Cors__Origins</code> in gateway and auth service environment variables.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Database Connectivity Issues</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Resolution</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Login failed for user 'sa'</strong></td>
+          <td>SQL Server Authentication not enabled, or wrong password</td>
+          <td>In SQL Server Management Studio: Server Properties → Security → select "SQL Server and Windows Authentication mode". Restart SQL Server service.</td>
+        </tr>
+        <tr>
+          <td><strong>Cannot connect to server</strong></td>
+          <td>SQL Server TCP/IP protocol disabled</td>
+          <td>SQL Server Configuration Manager → SQL Server Network Configuration → Protocols for MSSQLSERVER → enable TCP/IP. Restart SQL Server service.</td>
+        </tr>
+        <tr>
+          <td><strong>Database tables not found</strong></td>
+          <td>db-init scripts did not run or partially failed</td>
+          <td>Run the SQL scripts manually from the <code>database/</code> folder in order: schemas → tables → indexes → stored-procedures → seed-data.</td>
+        </tr>
+        <tr>
+          <td><strong>Connection timeout in Docker</strong></td>
+          <td>Service started before SQL Server was ready</td>
+          <td>The health check ensures SQL Server is ready before services start. If issues persist, increase <code>start_period</code> for <code>sqlserver</code> in docker-compose.yml.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr class="divider" />
+
+    <h2>Pre-Deployment Checklist</h2>
+    <ul class="checklist">
+      <li>Changed SQL Server SA password from default <code>RetailERP@2024!</code></li>
+      <li>Generated a new JWT secret (minimum 48 characters, base64 encoded)</li>
+      <li>Updated Grafana admin password from <code>admin</code></li>
+      <li>Changed the application admin password (<code>Admin@123</code>) after first login</li>
+      <li>Set <code>ASPNETCORE_ENVIRONMENT=Production</code> on all services (disables Swagger)</li>
+      <li>Verified all 7 microservices respond to <code>/health</code> endpoint</li>
+      <li>Verified database initialization completed (all schemas and seed data)</li>
+      <li>SSL certificate installed and HTTPS redirect configured</li>
+      <li>CORS origins updated to the production domain</li>
+      <li>Log rotation configured (Docker json-file driver or Windows Event Log)</li>
+      <li>Firewall rules restrict direct access to microservice ports (5001–5007)</li>
+      <li>Only ports 80 and 443 exposed publicly; all others internal only</li>
+      <li>Backup schedule configured for SQL Server database</li>
+      <li>Monitoring alerts configured in Grafana for service downtime</li>
+    </ul>
+
+    <div class="callout success">
+      <div class="callout-icon">✅</div>
+      <div class="callout-body">
+        <div class="callout-title">Deployment Support</div>
+        <div class="callout-text">For deployment assistance, configuration questions, or production-specific issues, contact the RetailERP support team at <strong>support@elcurio.com</strong>. Reference this document version <strong>v2.1 — March 2026</strong> when raising a ticket.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

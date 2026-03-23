@@ -1,0 +1,54 @@
+# Multi-stage Dockerfile for ASP.NET Core microservices
+# Usage: docker build -f docker/Dockerfile.api --build-arg SERVICE_NAME=Auth --build-arg SERVICE_DIR=auth -t retailerp-auth .
+
+ARG SERVICE_NAME=Auth
+ARG SERVICE_DIR=auth
+
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG SERVICE_NAME
+ARG SERVICE_DIR
+WORKDIR /src
+
+# Copy shared project files for restore
+COPY src/shared/RetailERP.Shared.Domain/RetailERP.Shared.Domain.csproj ./shared/RetailERP.Shared.Domain/
+COPY src/shared/RetailERP.Shared.Contracts/RetailERP.Shared.Contracts.csproj ./shared/RetailERP.Shared.Contracts/
+COPY src/shared/RetailERP.Shared.Infrastructure/RetailERP.Shared.Infrastructure.csproj ./shared/RetailERP.Shared.Infrastructure/
+
+# Copy service project files for restore
+COPY src/services/${SERVICE_DIR}/ ./services/${SERVICE_DIR}/
+
+# Restore
+RUN dotnet restore "services/${SERVICE_DIR}/RetailERP.${SERVICE_NAME}.API/RetailERP.${SERVICE_NAME}.API.csproj"
+
+# Copy all source
+COPY src/shared/ ./shared/
+COPY src/services/${SERVICE_DIR}/ ./services/${SERVICE_DIR}/
+
+# Publish
+RUN dotnet publish "services/${SERVICE_DIR}/RetailERP.${SERVICE_NAME}.API/RetailERP.${SERVICE_NAME}.API.csproj" \
+    -c Release -o /app/publish --no-restore
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
+ARG SERVICE_NAME
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* && \
+    adduser --disabled-password --gecos '' appuser
+
+COPY --from=build /app/publish .
+
+# Store the DLL name for the entrypoint
+RUN echo "RetailERP.${SERVICE_NAME}.API.dll" > /app/service.txt
+
+USER appuser
+
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["sh", "-c", "dotnet $(cat /app/service.txt)"]

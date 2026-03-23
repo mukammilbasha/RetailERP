@@ -1,0 +1,46 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+*.vs/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+*.dll
+*.exe
+*.pdb
+
+# Claude Code
+.claude/
+.zencoder/
+.zenflow/
