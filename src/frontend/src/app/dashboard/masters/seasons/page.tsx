@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
+import { FieldError } from "@/components/ui/field-error";
+import { required, hasErrors, type ValidationError } from "@/lib/validators";
 
 interface Season {
   seasonId: string;
@@ -23,6 +25,7 @@ export default function SeasonsPage() {
   const [formCode, setFormCode] = useState("");
   const [formStartDate, setFormStartDate] = useState("");
   const [formEndDate, setFormEndDate] = useState("");
+  const [errors, setErrors] = useState<ValidationError>({});
 
   const fetchSeasons = useCallback(async () => {
     setLoading(true);
@@ -53,6 +56,7 @@ export default function SeasonsPage() {
     setFormCode("");
     setFormStartDate("");
     setFormEndDate("");
+    setErrors({});
     setModalOpen(true);
   };
 
@@ -61,12 +65,31 @@ export default function SeasonsPage() {
     setFormCode(season.seasonCode);
     setFormStartDate(formatDate(season.startDate));
     setFormEndDate(formatDate(season.endDate));
+    setErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!formCode.trim()) return;
-    if (!formStartDate || !formEndDate) return;
+    const endDateError = (() => {
+      const req = required(formEndDate, "End Date");
+      if (req) return req;
+      if (formStartDate && formEndDate && formEndDate <= formStartDate) {
+        return "End Date must be after Start Date";
+      }
+      return "";
+    })();
+
+    const newErrors: ValidationError = {
+      seasonCode: required(formCode, "Season Code"),
+      startDate:  required(formStartDate, "Start Date"),
+      endDate:    endDateError,
+    };
+
+    if (hasErrors(newErrors)) {
+      setErrors(newErrors);
+      return;
+    }
+
     try {
       if (editingSeason) {
         await api.put(`/api/seasons/${editingSeason.seasonId}`, {
@@ -144,28 +167,31 @@ export default function SeasonsPage() {
             <input
               type="text"
               value={formCode}
-              onChange={(e) => setFormCode(e.target.value)}
+              onChange={(e) => { setFormCode(e.target.value); setErrors((p) => ({ ...p, seasonCode: "" })); }}
               placeholder="Enter season code"
-              className="w-full px-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${errors.seasonCode ? "border-destructive" : "border-input"}`}
             />
+            <FieldError error={errors.seasonCode} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Start Date *</label>
             <input
               type="date"
               value={formStartDate}
-              onChange={(e) => setFormStartDate(e.target.value)}
-              className="w-full px-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              onChange={(e) => { setFormStartDate(e.target.value); setErrors((p) => ({ ...p, startDate: "" })); }}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${errors.startDate ? "border-destructive" : "border-input"}`}
             />
+            <FieldError error={errors.startDate} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">End Date *</label>
             <input
               type="date"
               value={formEndDate}
-              onChange={(e) => setFormEndDate(e.target.value)}
-              className="w-full px-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              onChange={(e) => { setFormEndDate(e.target.value); setErrors((p) => ({ ...p, endDate: "" })); }}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${errors.endDate ? "border-destructive" : "border-input"}`}
             />
+            <FieldError error={errors.endDate} />
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border rounded-lg hover:bg-muted">

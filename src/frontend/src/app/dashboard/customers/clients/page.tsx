@@ -5,6 +5,8 @@ import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { FieldError } from "@/components/ui/field-error";
+import { required, pattern, PATTERNS, hasErrors, type ValidationError } from "@/lib/validators";
 
 interface Client {
   clientId: string;
@@ -60,9 +62,11 @@ export default function ClientsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [errors, setErrors] = useState<ValidationError>({});
 
   const updateForm = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
   const fetchClients = useCallback(async () => {
@@ -89,11 +93,13 @@ export default function ClientsPage() {
   const openAdd = () => {
     setEditingClient(null);
     setForm(emptyForm());
+    setErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (client: Client) => {
     setEditingClient(client);
+    setErrors({});
     setForm({
       clientCode: client.clientCode,
       clientName: client.clientName,
@@ -111,7 +117,17 @@ export default function ClientsPage() {
   };
 
   const handleSave = async () => {
-    if (!form.clientName.trim() || !form.clientCode.trim()) return;
+    const newErrors: ValidationError = {
+      clientName: required(form.clientName, "Client Name"),
+      clientCode: required(form.clientCode, "Client Code"),
+      organisation: required(form.organisation, "Organisation"),
+      gstin: pattern(form.gstin, PATTERNS.GSTIN, "GSTIN", "e.g. 27AADCB2230M1ZP"),
+      state: required(form.state, "State"),
+      zone: required(form.zone, "Zone"),
+      contactNo: pattern(form.contactNo, PATTERNS.PHONE, "Contact No", "10-digit mobile number"),
+      email: pattern(form.email, PATTERNS.EMAIL, "Email", "valid email address"),
+    };
+    if (hasErrors(newErrors)) { setErrors(newErrors); return; }
     try {
       if (editingClient) {
         await api.put(`/api/clients/${editingClient.clientId}`, form);
@@ -196,8 +212,9 @@ export default function ClientsPage() {
                 value={form.clientName}
                 onChange={(e) => updateForm("clientName", e.target.value)}
                 placeholder="INC.5"
-                className={inputClass}
+                className={`${inputClass} ${errors.clientName ? "border-destructive" : ""}`}
               />
+              <FieldError error={errors.clientName} />
             </div>
             <div>
               <label className={labelClass}>Code *</label>
@@ -206,8 +223,9 @@ export default function ClientsPage() {
                 value={form.clientCode}
                 onChange={(e) => updateForm("clientCode", e.target.value)}
                 placeholder="INC5"
-                className={inputClass}
+                className={`${inputClass} ${errors.clientCode ? "border-destructive" : ""}`}
               />
+              <FieldError error={errors.clientCode} />
             </div>
           </div>
           <div>
@@ -217,8 +235,9 @@ export default function ClientsPage() {
               value={form.organisation}
               onChange={(e) => updateForm("organisation", e.target.value)}
               placeholder="INC.5 SHOES PRIVATE LIMITED"
-              className={inputClass}
+              className={`${inputClass} ${errors.organisation ? "border-destructive" : ""}`}
             />
+            <FieldError error={errors.organisation} />
           </div>
           <div>
             <label className={labelClass}>GSTIN *</label>
@@ -227,8 +246,9 @@ export default function ClientsPage() {
               value={form.gstin}
               onChange={(e) => updateForm("gstin", e.target.value)}
               placeholder="23AADCI3682G1ZP"
-              className={`${inputClass} font-mono`}
+              className={`${inputClass} font-mono ${errors.gstin ? "border-destructive" : ""}`}
             />
+            <FieldError error={errors.gstin} />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -236,13 +256,14 @@ export default function ClientsPage() {
               <select
                 value={form.state}
                 onChange={(e) => updateForm("state", e.target.value)}
-                className={selectClass}
+                className={`${selectClass} ${errors.state ? "border-destructive" : ""}`}
               >
                 <option value="">Select state</option>
                 {INDIAN_STATES.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
+              <FieldError error={errors.state} />
             </div>
             <div>
               <label className={labelClass}>State Code</label>
@@ -259,13 +280,14 @@ export default function ClientsPage() {
               <select
                 value={form.zone}
                 onChange={(e) => updateForm("zone", e.target.value)}
-                className={selectClass}
+                className={`${selectClass} ${errors.zone ? "border-destructive" : ""}`}
               >
                 <option value="">Select zone</option>
                 {ZONES.map((z) => (
                   <option key={z} value={z}>{z}</option>
                 ))}
               </select>
+              <FieldError error={errors.zone} />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
@@ -276,8 +298,9 @@ export default function ClientsPage() {
                 value={form.contactNo}
                 onChange={(e) => updateForm("contactNo", e.target.value)}
                 placeholder="9876543210"
-                className={inputClass}
+                className={`${inputClass} ${errors.contactNo ? "border-destructive" : ""}`}
               />
+              <FieldError error={errors.contactNo} />
             </div>
             <div>
               <label className={labelClass}>Email *</label>
@@ -286,8 +309,9 @@ export default function ClientsPage() {
                 value={form.email}
                 onChange={(e) => updateForm("email", e.target.value)}
                 placeholder="info@client.com"
-                className={inputClass}
+                className={`${inputClass} ${errors.email ? "border-destructive" : ""}`}
               />
+              <FieldError error={errors.email} />
             </div>
             <div>
               <label className={labelClass}>Margin %</label>

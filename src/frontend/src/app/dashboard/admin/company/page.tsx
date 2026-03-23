@@ -14,6 +14,15 @@ import {
   Receipt,
   AlertCircle,
 } from "lucide-react";
+import { FieldError } from "@/components/ui/field-error";
+import {
+  PATTERNS,
+  required,
+  minLength,
+  pattern,
+  hasErrors,
+  type ValidationError,
+} from "@/lib/validators";
 
 /* ================================================================
    Types
@@ -181,6 +190,7 @@ export default function CompanyMasterPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<ValidationError>({});
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>("");
   const [dragOver, setDragOver] = useState(false);
@@ -241,6 +251,7 @@ export default function CompanyMasterPage() {
     setSettings((prev) => ({ ...prev, [key]: value }));
     setSaved(false);
     setError(null);
+    setErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
   /* Logo handling */
@@ -276,6 +287,29 @@ export default function CompanyMasterPage() {
 
   /* Save — sends individual form fields so [FromForm] binding works */
   const handleSave = async () => {
+    const newErrors: ValidationError = {
+      companyName:
+        required(settings.companyName, "Company Name") ||
+        minLength(settings.companyName, 2, "Company Name"),
+      gstin:    pattern(settings.gstin, PATTERNS.GSTIN, "GSTIN", "e.g. 22AAAAA0000A1Z5"),
+      pan:      pattern(settings.pan, PATTERNS.PAN, "PAN", "e.g. AAAAA0000A"),
+      pincode:
+        required(settings.pincode, "Pincode") ||
+        pattern(settings.pincode, PATTERNS.PINCODE, "Pincode", "6-digit Indian pincode"),
+      phone:
+        required(settings.phone, "Phone") ||
+        pattern(settings.phone, PATTERNS.PHONE, "Phone", "10-digit mobile starting with 6-9"),
+      email:
+        required(settings.email, "Email") ||
+        pattern(settings.email, PATTERNS.EMAIL, "Email"),
+      ifscCode: pattern(settings.ifscCode, PATTERNS.IFSC, "IFSC Code", "e.g. HDFC0001295"),
+    };
+
+    if (hasErrors(newErrors)) {
+      setErrors(newErrors);
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
@@ -334,14 +368,13 @@ export default function CompanyMasterPage() {
 
   /* Sidebar-aware left offset for the fixed save bar */
   const saveBarLeft = cn(
-    "md:transition-[left] md:duration-300",
-    isCollapsed ? "md:left-[72px]" : "md:left-[260px]",
-    "left-0"
+    "transition-[left] duration-300",
+    isCollapsed ? "left-0 md:left-[72px]" : "left-0 md:left-[260px]"
   );
 
   if (loading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-56" />
           <div className="h-4 bg-muted rounded w-80" />
@@ -361,13 +394,13 @@ export default function CompanyMasterPage() {
   return (
     <div className="max-w-4xl mx-auto pb-28">
       {/* ─── Page Header ─── */}
-      <div className="px-6 pt-2 pb-4">
+      <div className="pb-4">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
             <Building size={20} className="text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Company Master</h1>
+            <h1 className="text-xl font-bold tracking-tight">Company Master</h1>
             <p className="text-sm text-muted-foreground">
               Manage company details, logo, and tenant configuration
             </p>
@@ -377,14 +410,14 @@ export default function CompanyMasterPage() {
 
       {/* ─── Error Banner ─── */}
       {error && (
-        <div className="mx-6 mb-4 flex items-center gap-2 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
           <AlertCircle size={15} className="shrink-0" />
           {error}
         </div>
       )}
 
-      {/* ─── Section Tab Navigation ─── */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border px-6 py-2 mb-6">
+      {/* ─── Section Tab Navigation — breaks out of layout padding, sticks at top ─── */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border -mx-4 md:-mx-6 px-4 md:px-6 py-2 mb-4">
         <div className="flex gap-1 overflow-x-auto no-scrollbar">
           {SECTIONS.map(({ id, label, icon: Icon }) => (
             <button
@@ -404,7 +437,7 @@ export default function CompanyMasterPage() {
         </div>
       </div>
 
-      <div className="px-6 space-y-6">
+      <div className="space-y-4">
         {/* ─── Section 1: Company Branding ─── */}
         <div
           id="branding"
@@ -461,6 +494,7 @@ export default function CompanyMasterPage() {
                 onChange={(v) => updateField("companyName", v)}
                 placeholder="e.g., EL CURIO"
                 required
+                error={errors.companyName}
               />
               <FormField
                 label="Company Subtitle"
@@ -492,12 +526,14 @@ export default function CompanyMasterPage() {
                 value={settings.gstin}
                 onChange={(v) => updateField("gstin", v.toUpperCase())}
                 placeholder="22AAAAA0000A1Z5"
+                error={errors.gstin}
               />
               <FormField
                 label="PAN"
                 value={settings.pan}
                 onChange={(v) => updateField("pan", v.toUpperCase())}
                 placeholder="AAAAA0000A"
+                error={errors.pan}
               />
               <FormField
                 label="CIN"
@@ -560,6 +596,7 @@ export default function CompanyMasterPage() {
                 onChange={(v) => updateField("pincode", v)}
                 placeholder="000000"
                 required
+                error={errors.pincode}
               />
               <FormField
                 label="Country"
@@ -576,6 +613,7 @@ export default function CompanyMasterPage() {
                 onChange={(v) => updateField("phone", v)}
                 placeholder="+91 XXXXX XXXXX"
                 required
+                error={errors.phone}
               />
               <FormField
                 label="Email"
@@ -584,6 +622,7 @@ export default function CompanyMasterPage() {
                 placeholder="info@company.com"
                 type="email"
                 required
+                error={errors.email}
               />
               <FormField
                 label="Website"
@@ -633,6 +672,7 @@ export default function CompanyMasterPage() {
                 value={settings.ifscCode}
                 onChange={(v) => updateField("ifscCode", v.toUpperCase())}
                 placeholder="e.g., HDFC0001295"
+                error={errors.ifscCode}
               />
             </div>
           </SectionCard>
@@ -837,7 +877,7 @@ function SectionCard({
 }
 
 function FormField({
-  label, value, onChange, placeholder, type = "text", required,
+  label, value, onChange, placeholder, type = "text", required, error,
 }: {
   label: string;
   value: string;
@@ -845,6 +885,7 @@ function FormField({
   placeholder?: string;
   type?: string;
   required?: boolean;
+  error?: string;
 }) {
   return (
     <div>
@@ -857,8 +898,12 @@ function FormField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-background"
+        className={cn(
+          "w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-background",
+          error ? "border-destructive" : "border-input"
+        )}
       />
+      <FieldError error={error} />
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate } from "@/lib/utils";
+import { FieldError } from "@/components/ui/field-error";
+import { required, pattern, minLength, PATTERNS, hasErrors, type ValidationError } from "@/lib/validators";
 
 interface User {
   userId: string;
@@ -50,9 +52,11 @@ export default function UsersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [errors, setErrors] = useState<ValidationError>({});
 
   const updateForm = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
   const fetchUsers = useCallback(async () => {
@@ -96,11 +100,13 @@ export default function UsersPage() {
   const openAdd = () => {
     setEditingUser(null);
     setForm(emptyForm());
+    setErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (user: User) => {
     setEditingUser(user);
+    setErrors({});
     setForm({
       fullName: user.fullName,
       email: user.email,
@@ -112,7 +118,13 @@ export default function UsersPage() {
   };
 
   const handleSave = async () => {
-    if (!form.fullName.trim() || !form.email.trim() || !form.role) return;
+    const newErrors: ValidationError = {
+      fullName: required(form.fullName, "Full Name"),
+      email: required(form.email, "Email") || pattern(form.email, PATTERNS.EMAIL, "Email"),
+      role: required(form.role, "Role"),
+      password: editingUser ? "" : (required(form.password, "Password") || minLength(form.password, 6, "Password")),
+    };
+    if (hasErrors(newErrors)) { setErrors(newErrors); return; }
     try {
       if (editingUser) {
         await api.put(`/api/users/${editingUser.userId}`, {
@@ -122,7 +134,6 @@ export default function UsersPage() {
           isActive: form.isActive,
         });
       } else {
-        if (!form.password) return;
         await api.post("/api/users", {
           fullName: form.fullName,
           email: form.email,
@@ -246,8 +257,9 @@ export default function UsersPage() {
               value={form.fullName}
               onChange={(e) => updateForm("fullName", e.target.value)}
               placeholder="John Doe"
-              className={inputClass}
+              className={`${inputClass} ${errors.fullName ? "border-destructive" : ""}`}
             />
+            <FieldError error={errors.fullName} />
           </div>
           <div>
             <label className={labelClass}>Email *</label>
@@ -256,15 +268,16 @@ export default function UsersPage() {
               value={form.email}
               onChange={(e) => updateForm("email", e.target.value)}
               placeholder="john@company.com"
-              className={inputClass}
+              className={`${inputClass} ${errors.email ? "border-destructive" : ""}`}
             />
+            <FieldError error={errors.email} />
           </div>
           <div>
             <label className={labelClass}>Role *</label>
             <select
               value={form.role}
               onChange={(e) => updateForm("role", e.target.value)}
-              className={selectClass}
+              className={`${selectClass} ${errors.role ? "border-destructive" : ""}`}
             >
               <option value="">Select role</option>
               {roleOptions.map((r) => (
@@ -273,6 +286,7 @@ export default function UsersPage() {
                 </option>
               ))}
             </select>
+            <FieldError error={errors.role} />
           </div>
           {!editingUser && (
             <div>
@@ -281,8 +295,9 @@ export default function UsersPage() {
                 type="password"
                 value={form.password}
                 onChange={(e) => updateForm("password", e.target.value)}
-                className={inputClass}
+                className={`${inputClass} ${errors.password ? "border-destructive" : ""}`}
               />
+              <FieldError error={errors.password} />
               <p className="text-xs text-muted-foreground mt-1">
                 User will be prompted to change on first login
               </p>

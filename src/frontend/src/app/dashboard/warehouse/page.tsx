@@ -5,6 +5,14 @@ import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { FieldError } from "@/components/ui/field-error";
+import {
+  required,
+  minLength,
+  maxLength,
+  hasErrors,
+  type ValidationError,
+} from "@/lib/validators";
 
 interface Warehouse {
   warehouseId: string;
@@ -48,9 +56,11 @@ export default function WarehousePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [errors, setErrors] = useState<ValidationError>({});
 
   const updateForm = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
   const fetchWarehouses = useCallback(async () => {
@@ -77,6 +87,7 @@ export default function WarehousePage() {
   const openAdd = () => {
     setEditingWarehouse(null);
     setForm(emptyForm());
+    setErrors({});
     setModalOpen(true);
   };
 
@@ -90,11 +101,27 @@ export default function WarehousePage() {
       state: warehouse.state,
       isActive: warehouse.isActive,
     });
+    setErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.warehouseName.trim() || !form.warehouseCode.trim()) return;
+    const newErrors: ValidationError = {
+      warehouseCode:
+        required(form.warehouseCode, "Warehouse Code") ||
+        minLength(form.warehouseCode, 2, "Warehouse Code") ||
+        maxLength(form.warehouseCode, 10, "Warehouse Code"),
+      warehouseName:
+        required(form.warehouseName, "Warehouse Name") ||
+        minLength(form.warehouseName, 3, "Warehouse Name"),
+      city: required(form.city, "City"),
+    };
+
+    if (hasErrors(newErrors)) {
+      setErrors(newErrors);
+      return;
+    }
+
     try {
       if (editingWarehouse) {
         await api.put(`/api/warehouses/${editingWarehouse.warehouseId}`, form);
@@ -166,18 +193,20 @@ export default function WarehousePage() {
                 value={form.warehouseName}
                 onChange={(e) => updateForm("warehouseName", e.target.value)}
                 placeholder="Mumbai Central Warehouse"
-                className={inputClass}
+                className={errors.warehouseName ? `${inputClass} border-destructive` : inputClass}
               />
+              <FieldError error={errors.warehouseName} />
             </div>
             <div>
               <label className={labelClass}>Code *</label>
               <input
                 type="text"
                 value={form.warehouseCode}
-                onChange={(e) => updateForm("warehouseCode", e.target.value)}
+                onChange={(e) => updateForm("warehouseCode", e.target.value.toUpperCase())}
                 placeholder="WH-MH"
-                className={inputClass}
+                className={errors.warehouseCode ? `${inputClass} border-destructive` : inputClass}
               />
+              <FieldError error={errors.warehouseCode} />
             </div>
           </div>
           <div>
@@ -198,8 +227,9 @@ export default function WarehousePage() {
                 value={form.city}
                 onChange={(e) => updateForm("city", e.target.value)}
                 placeholder="Mumbai"
-                className={inputClass}
+                className={errors.city ? `${inputClass} border-destructive` : inputClass}
               />
+              <FieldError error={errors.city} />
             </div>
             <div>
               <label className={labelClass}>State *</label>

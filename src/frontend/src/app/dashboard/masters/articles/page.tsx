@@ -7,6 +7,15 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/utils";
+import { FieldError } from "@/components/ui/field-error";
+import {
+  required,
+  minLength,
+  maxLength,
+  positiveNumber,
+  hasErrors,
+  type ValidationError,
+} from "@/lib/validators";
 
 /* ---------- types ---------- */
 interface Article {
@@ -162,6 +171,7 @@ export default function ArticlesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState<ValidationError>({});
 
   // Segment filter for DataTable
   const [segmentFilter, setSegmentFilter] = useState("All");
@@ -299,11 +309,13 @@ export default function ArticlesPage() {
   const openAdd = () => {
     setEditingArticle(null);
     setForm(emptyForm);
+    setErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (article: Article) => {
     setEditingArticle(article);
+    setErrors({});
     setForm({
       articleCode: article.articleCode || "",
       articleName: article.articleName || "",
@@ -339,10 +351,38 @@ export default function ArticlesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.articleCode.trim() || !form.articleName.trim()) {
-      alert("Article Code and Name are required.");
+    const hsnError = (() => {
+      const req = required(form.hsnCode, "HSN Code");
+      if (req) return req;
+      if (!/^\d{4,8}$/.test(form.hsnCode.trim())) return "HSN Code must be 4-8 digits";
+      return "";
+    })();
+
+    const codeError = (() => {
+      const req = required(form.articleCode, "Article Code");
+      if (req) return req;
+      const min = minLength(form.articleCode, 4, "Article Code");
+      if (min) return min;
+      const max = maxLength(form.articleCode, 20, "Article Code");
+      if (max) return max;
+      if (!/^[A-Za-z0-9\-]+$/.test(form.articleCode.trim())) return "Article Code must be alphanumeric";
+      return "";
+    })();
+
+    const newErrors: ValidationError = {
+      articleCode: codeError,
+      articleName:
+        required(form.articleName, "Article Name") ||
+        minLength(form.articleName, 3, "Article Name"),
+      mrp:     positiveNumber(form.mrp, "MRP"),
+      hsnCode: hsnError,
+    };
+
+    if (hasErrors(newErrors)) {
+      setErrors(newErrors);
       return;
     }
+
     try {
       if (editingArticle) {
         await api.put(`/api/articles/${editingArticle.articleId}`, form);
@@ -450,8 +490,10 @@ export default function ArticlesPage() {
   }, [segmentFilter]);
 
   /* ---- helper for form update ---- */
-  const setField = (field: string, value: any) =>
+  const setField = (field: string, value: any) => {
     setForm((f) => ({ ...f, [field]: value }));
+    setErrors((e) => ({ ...e, [field]: "" }));
+  };
 
   /* ---- render ---- */
   return (
@@ -533,8 +575,9 @@ export default function ArticlesPage() {
                 placeholder="FW-004"
                 value={form.articleCode}
                 onChange={(e) => setField("articleCode", e.target.value)}
-                className={inputCls}
+                className={errors.articleCode ? `${inputCls} border-destructive` : inputCls}
               />
+              <FieldError error={errors.articleCode} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Article Name *</label>
@@ -543,8 +586,9 @@ export default function ArticlesPage() {
                 placeholder="Premium Derby Shoes"
                 value={form.articleName}
                 onChange={(e) => setField("articleName", e.target.value)}
-                className={inputCls}
+                className={errors.articleName ? `${inputCls} border-destructive` : inputCls}
               />
+              <FieldError error={errors.articleName} />
             </div>
             <div className="sm:col-span-2 lg:col-span-1">
               <label className="block text-sm font-medium mb-1.5">Image</label>
@@ -785,8 +829,9 @@ export default function ArticlesPage() {
                   type="text"
                   value={form.hsnCode}
                   onChange={(e) => setField("hsnCode", e.target.value)}
-                  className={inputCls}
+                  className={errors.hsnCode ? `${inputCls} border-destructive` : inputCls}
                 />
+                <FieldError error={errors.hsnCode} />
               </div>
             </div>
 
@@ -872,8 +917,9 @@ export default function ArticlesPage() {
                   type="number"
                   value={form.mrp || ""}
                   onChange={(e) => setField("mrp", +e.target.value)}
-                  className={inputCls}
+                  className={errors.mrp ? `${inputCls} border-destructive` : inputCls}
                 />
+                <FieldError error={errors.mrp} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">CBD (&#8377;)</label>

@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
+import { FieldError } from "@/components/ui/field-error";
+import { required, hasErrors, type ValidationError } from "@/lib/validators";
 
 interface Category {
   categoryId: string;
@@ -28,6 +30,7 @@ export default function SubCategoriesPage() {
   const [editingSubCategory, setEditingSubCategory] = useState<SubCategory | null>(null);
   const [formName, setFormName] = useState("");
   const [formCategoryId, setFormCategoryId] = useState("");
+  const [errors, setErrors] = useState<ValidationError>({});
 
   const fetchSubCategories = useCallback(async () => {
     setLoading(true);
@@ -66,6 +69,7 @@ export default function SubCategoriesPage() {
     setEditingSubCategory(null);
     setFormName("");
     setFormCategoryId("");
+    setErrors({});
     setModalOpen(true);
   };
 
@@ -73,12 +77,16 @@ export default function SubCategoriesPage() {
     setEditingSubCategory(subCategory);
     setFormName(subCategory.subCategoryName);
     setFormCategoryId(subCategory.categoryId);
+    setErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!formName.trim()) return;
-    if (!formCategoryId) return;
+    const newErrors: ValidationError = {
+      categoryId: required(formCategoryId, "Category"),
+      subCategoryName: required(formName, "Sub Category Name"),
+    };
+    if (hasErrors(newErrors)) { setErrors(newErrors); return; }
     try {
       if (editingSubCategory) {
         await api.put(`/api/subcategories/${editingSubCategory.subCategoryId}`, {
@@ -146,8 +154,8 @@ export default function SubCategoriesPage() {
             <label className="block text-sm font-medium mb-1.5">Category *</label>
             <select
               value={formCategoryId}
-              onChange={(e) => setFormCategoryId(e.target.value)}
-              className="w-full px-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-transparent"
+              onChange={(e) => { setFormCategoryId(e.target.value); setErrors((p) => ({ ...p, categoryId: "" })); }}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-transparent ${errors.categoryId ? "border-destructive" : "border-input"}`}
             >
               <option value="">Select a category</option>
               {categories.map((cat) => (
@@ -156,16 +164,18 @@ export default function SubCategoriesPage() {
                 </option>
               ))}
             </select>
+            <FieldError error={errors.categoryId} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Sub Category Name *</label>
             <input
               type="text"
               value={formName}
-              onChange={(e) => setFormName(e.target.value)}
+              onChange={(e) => { setFormName(e.target.value); setErrors((p) => ({ ...p, subCategoryName: "" })); }}
               placeholder="Enter sub category name"
-              className="w-full px-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${errors.subCategoryName ? "border-destructive" : "border-input"}`}
             />
+            <FieldError error={errors.subCategoryName} />
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border rounded-lg hover:bg-muted">

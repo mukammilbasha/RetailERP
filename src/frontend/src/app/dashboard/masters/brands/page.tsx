@@ -5,6 +5,8 @@ import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { FieldError } from "@/components/ui/field-error";
+import { required, hasErrors, type ValidationError } from "@/lib/validators";
 
 interface Brand {
   brandId: string;
@@ -22,6 +24,7 @@ export default function BrandsPage() {
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [formName, setFormName] = useState("");
   const [formActive, setFormActive] = useState(true);
+  const [errors, setErrors] = useState<ValidationError>({});
 
   const fetchBrands = useCallback(async () => {
     setLoading(true);
@@ -46,6 +49,7 @@ export default function BrandsPage() {
     setEditingBrand(null);
     setFormName("");
     setFormActive(true);
+    setErrors({});
     setModalOpen(true);
   };
 
@@ -53,11 +57,13 @@ export default function BrandsPage() {
     setEditingBrand(brand);
     setFormName(brand.brandName);
     setFormActive(brand.isActive);
+    setErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!formName.trim()) return;
+    const newErrors: ValidationError = { brandName: required(formName, "Brand Name") };
+    if (hasErrors(newErrors)) { setErrors(newErrors); return; }
     try {
       if (editingBrand) {
         await api.put(`/api/brands/${editingBrand.brandId}`, {
@@ -126,10 +132,11 @@ export default function BrandsPage() {
             <input
               type="text"
               value={formName}
-              onChange={(e) => setFormName(e.target.value)}
+              onChange={(e) => { setFormName(e.target.value); setErrors((p) => ({ ...p, brandName: "" })); }}
               placeholder="Enter brand name"
-              className="w-full px-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${errors.brandName ? "border-destructive" : "border-input"}`}
             />
+            <FieldError error={errors.brandName} />
           </div>
           <div className="flex items-center gap-3">
             <button

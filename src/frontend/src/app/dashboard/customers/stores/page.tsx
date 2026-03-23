@@ -5,6 +5,8 @@ import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { FieldError } from "@/components/ui/field-error";
+import { required, pattern, PATTERNS, hasErrors, type ValidationError } from "@/lib/validators";
 
 interface Client {
   clientId: string;
@@ -135,9 +137,11 @@ export default function StoresPage() {
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [sameAsBilling, setSameAsBilling] = useState(false);
+  const [errors, setErrors] = useState<ValidationError>({});
 
   const updateForm = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
   const fetchStores = useCallback(async () => {
@@ -208,11 +212,13 @@ export default function StoresPage() {
     setEditingStore(null);
     setForm(emptyForm());
     setSameAsBilling(false);
+    setErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (store: Store) => {
     setEditingStore(store);
+    setErrors({});
     const { storeId, clientName, ...rest } = store;
     setForm({ ...emptyForm(), ...rest });
     setSameAsBilling(false);
@@ -220,7 +226,16 @@ export default function StoresPage() {
   };
 
   const handleSave = async () => {
-    if (!form.storeName.trim() || !form.storeCode.trim() || !form.clientId) return;
+    const newErrors: ValidationError = {
+      clientId: required(form.clientId, "Client"),
+      storeCode: required(form.storeCode, "Store Code"),
+      storeName: required(form.storeName, "Store Name"),
+      state: required(form.state, "State"),
+      zone: required(form.zone, "Zone"),
+      gstin: form.gstin ? pattern(form.gstin, PATTERNS.GSTIN, "GSTIN", "e.g. 27AADCB2230M1ZP") : "",
+      email: form.email ? pattern(form.email, PATTERNS.EMAIL, "Email") : "",
+    };
+    if (hasErrors(newErrors)) { setErrors(newErrors); return; }
     try {
       if (editingStore) {
         await api.put(`/api/stores/${editingStore.storeId}`, form);
@@ -324,7 +339,7 @@ export default function StoresPage() {
                 <select
                   value={form.clientId}
                   onChange={(e) => updateForm("clientId", e.target.value)}
-                  className={selectClass}
+                  className={`${selectClass} ${errors.clientId ? "border-destructive" : ""}`}
                 >
                   <option value="">Select client</option>
                   {clients.map((c) => (
@@ -333,6 +348,7 @@ export default function StoresPage() {
                     </option>
                   ))}
                 </select>
+                <FieldError error={errors.clientId} />
               </div>
               <div>
                 <label className={labelClass}>Store Format *</label>
@@ -354,8 +370,9 @@ export default function StoresPage() {
                   value={form.storeCode}
                   onChange={(e) => updateForm("storeCode", e.target.value)}
                   placeholder="STR-001"
-                  className={inputClass}
+                  className={`${inputClass} ${errors.storeCode ? "border-destructive" : ""}`}
                 />
+                <FieldError error={errors.storeCode} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 mt-4">
@@ -366,8 +383,9 @@ export default function StoresPage() {
                   value={form.storeName}
                   onChange={(e) => updateForm("storeName", e.target.value)}
                   placeholder="Enter store name"
-                  className={inputClass}
+                  className={`${inputClass} ${errors.storeName ? "border-destructive" : ""}`}
                 />
+                <FieldError error={errors.storeName} />
               </div>
               <div>
                 <label className={labelClass}>Organisation</label>

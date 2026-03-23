@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RetailERP User Manual v2.1</title>
+<title>RetailERP User Manual v2.2</title>
 <style>
 /* ===== PAGE SETUP ===== */
 @page {
@@ -579,7 +579,7 @@ pre {
     </div>
     <div class="cover-meta-item">
       <span class="cover-meta-label">Date</span>
-      <span class="cover-meta-value">2026-03-22</span>
+      <span class="cover-meta-value">2026-03-23</span>
     </div>
     <div class="cover-meta-item">
       <span class="cover-meta-label">Modules</span>
@@ -2857,20 +2857,50 @@ pre {
   <p>Theme preferences are saved per browser and persist across sessions.</p>
 
   <h2 class="section-title">License Management</h2>
-  <div class="nav-path">Dashboard <span>&rsaquo;</span> Administration <span>&rsaquo;</span> License <span>(Admin only)</span></div>
-  <p>The License page displays your current RetailERP license details and enabled modules.</p>
+  <div class="nav-path">Dashboard <span>&rsaquo;</span> Administration <span>&rsaquo;</span> License <span>(Super Admin only)</span></div>
+  <div class="callout info"><div class="callout-icon">&#9432;</div><div class="callout-body"><div class="callout-title">Super Admin Access Only</div><div class="callout-text">The License menu is only visible to users with the <strong>Super Admin</strong> role. Other admin roles can view a license validity banner but cannot generate or activate licenses. This ensures that license management is centrally controlled by the system owner.</div></div></div>
+  <p>The License page has two sections: current license status and the license activation workflow.</p>
+
+  <h3>License Status Display</h3>
   <table class="no-break">
     <thead><tr><th>Field</th><th>Description</th></tr></thead>
     <tbody>
-      <tr><td><strong>License Status</strong></td><td>Active, Expired, or Trial</td></tr>
-      <tr><td><strong>License Key</strong></td><td>Unique key displayed partially (masked). Click "Reveal" to show full key for support purposes.</td></tr>
-      <tr><td><strong>Expiry Date</strong></td><td>When the current license expires</td></tr>
-      <tr><td><strong>Days Remaining</strong></td><td>Countdown with progress bar</td></tr>
-      <tr><td><strong>User Limit</strong></td><td>Maximum concurrent users allowed under this license tier</td></tr>
-      <tr><td><strong>Licensed Modules</strong></td><td>Which feature modules are included (e.g., Inventory, POS, Billing, Production, Reports)</td></tr>
+      <tr><td><strong>License Status</strong></td><td>Active, Expired, or Trial — displayed with a color-coded badge</td></tr>
+      <tr><td><strong>Plan</strong></td><td>License tier (e.g., Standard, Professional, Enterprise)</td></tr>
+      <tr><td><strong>License Key</strong></td><td>Unique encrypted key. Click "Copy" to copy to clipboard for sharing with support.</td></tr>
+      <tr><td><strong>Valid Until</strong></td><td>Date when the current license expires</td></tr>
+      <tr><td><strong>Days Remaining</strong></td><td>Countdown with color-coded indicator (green &gt; 90 days, yellow ≤ 90 days, orange ≤ 14 days, red = expired)</td></tr>
+      <tr><td><strong>Max Users</strong></td><td>Maximum concurrent user accounts allowed under this license tier</td></tr>
+      <tr><td><strong>Licensed Modules</strong></td><td>Feature modules included in the license (Inventory, POS, Billing, Production, Reports, etc.)</td></tr>
     </tbody>
   </table>
-  <div class="callout warning"><div class="callout-icon">&#9888;</div><div class="callout-body"><div class="callout-title">License Expiry</div><div class="callout-text">When the license expires, system access is restricted to read-only mode. Contact your RetailERP vendor to renew before the expiry date to avoid operational disruption. An email alert is sent 30 days and 7 days before expiry.</div></div></div>
+
+  <h3>Generating and Activating a License</h3>
+  <p>The license activation process has two steps:</p>
+  <ol>
+    <li><strong>Generate Key</strong> — Click the "Generate License Key" button to create a new encrypted license key based on the plan, duration, and module configuration you select. The key is generated locally and displayed in the form.</li>
+    <li><strong>Activate License</strong> — After generating, click "Activate License" to submit the key to the database. This saves the license record and immediately updates the license validity banner shown to all users.</li>
+  </ol>
+  <table class="no-break">
+    <thead><tr><th>Activation Field</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Plan</td><td>Yes</td><td>Standard, Professional, or Enterprise</td></tr>
+      <tr><td>Duration (Months)</td><td>Yes</td><td>License duration: 12, 24, or 36 months</td></tr>
+      <tr><td>Max Users</td><td>Yes</td><td>Maximum number of user accounts (1–500)</td></tr>
+      <tr><td>Valid From</td><td>Yes</td><td>Start date for the license period (defaults to today)</td></tr>
+      <tr><td>Modules</td><td>Yes</td><td>Which modules are included (multi-select checkboxes)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>License Validity Banner</h3>
+  <p>A slim banner is displayed below the header on every page of the application for all authenticated users. The banner shows the license plan, expiry date, and days remaining. The color changes based on urgency:</p>
+  <ul>
+    <li><strong>Green</strong> — Healthy license with more than 90 days remaining</li>
+    <li><strong>Yellow</strong> — Caution: 30–90 days remaining</li>
+    <li><strong>Orange</strong> — Warning: 14–30 days remaining — renew soon</li>
+    <li><strong>Red</strong> — Critical: license has expired or fewer than 14 days remain</li>
+  </ul>
+  <div class="callout warning"><div class="callout-icon">&#9888;</div><div class="callout-body"><div class="callout-title">License Expiry</div><div class="callout-text">When the license expires, system functionality may be restricted. Contact your RetailERP vendor (Super Admin) to renew the license before the expiry date to avoid operational disruption. Only the Super Admin can generate and activate a new license key.</div></div></div>
 </div>
 
 <!-- ==================== CHAPTER 31 — AUDIT LOGS ==================== -->
@@ -3315,11 +3345,11 @@ pre {
   <div style="display:flex;gap:30px;margin-bottom:20px;">
     <div style="text-align:center;">
       <div style="font-size:8pt;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Version</div>
-      <div style="font-weight:700;color:#1e293b;">2.1</div>
+      <div style="font-weight:700;color:#1e293b;">2.2</div>
     </div>
     <div style="text-align:center;">
       <div style="font-size:8pt;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Date</div>
-      <div style="font-weight:700;color:#1e293b;">2026-03-22</div>
+      <div style="font-weight:700;color:#1e293b;">2026-03-23</div>
     </div>
     <div style="text-align:center;">
       <div style="font-size:8pt;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Modules</div>

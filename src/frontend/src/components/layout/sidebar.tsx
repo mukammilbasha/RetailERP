@@ -512,11 +512,37 @@ function NavMenuItem({
    Sidebar Component
    ============================================================= */
 
+const SUPER_ADMIN_ROLES = ["SuperAdmin", "super_admin", "Admin"];
+
+function isSuperAdmin(role: string | undefined): boolean {
+  if (!role) return false;
+  return SUPER_ADMIN_ROLES.some(
+    (r) => r.toLowerCase() === role.toLowerCase()
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const { isCollapsed, toggleSidebar, isMobileOpen, setMobileOpen } =
     useSidebar();
+
+  // Filter nav: License menu only visible to super admin
+  const visibleNavigation = navigation.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      if (!item.children) return item;
+      return {
+        ...item,
+        children: item.children.filter((child) => {
+          if (child.href === "/dashboard/admin/license") {
+            return isSuperAdmin(user?.role);
+          }
+          return true;
+        }),
+      };
+    }),
+  }));
 
   // Touch swipe to close mobile sidebar (swipe left to close)
   const touchStartX = useRef<number | null>(null);
@@ -664,7 +690,7 @@ export function Sidebar() {
           isCollapsed ? "px-2" : "px-3"
         )}
       >
-        {navigation.map((group, groupIdx) => (
+        {visibleNavigation.map((group, groupIdx) => (
           <div key={group.section || `group-${groupIdx}`} className="mb-1">
             {/* Section header */}
             {group.section && !isCollapsed && (

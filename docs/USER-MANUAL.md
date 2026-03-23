@@ -2,8 +2,8 @@
 
 > Complete guide for end users of the EL CURIO RetailERP platform -- a retail distribution and ERP system for footwear, bags, belts, and leather goods.
 
-**Version:** 2.1
-**Last Updated:** 2026-03-20
+**Version:** 2.2
+**Last Updated:** 2026-03-23
 **Platform:** Web Application (Desktop & Mobile Browsers)
 
 ---

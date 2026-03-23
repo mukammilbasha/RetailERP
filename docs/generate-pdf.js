@@ -78,7 +78,7 @@ async function startServer(docsDir, port) {
       printBackground: true,
       margin: { top: '20mm', right: '15mm', bottom: '22mm', left: '15mm' },
       displayHeaderFooter: true,
-      headerTemplate: '<div style="font-size:8px;color:#9ca3af;width:100%;text-align:right;padding-right:15mm;padding-top:5mm;font-family:Arial,sans-serif">RetailERP User Manual &mdash; v2.1</div>',
+      headerTemplate: '<div style="font-size:8px;color:#9ca3af;width:100%;text-align:right;padding-right:15mm;padding-top:5mm;font-family:Arial,sans-serif">RetailERP User Manual &mdash; v2.2</div>',
       footerTemplate: '<div style="font-size:8px;color:#9ca3af;width:100%;text-align:center;padding-bottom:5mm;font-family:Arial,sans-serif">Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>',
     });
 

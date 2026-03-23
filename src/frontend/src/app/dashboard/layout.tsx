@@ -10,6 +10,7 @@ import {
   useSidebar,
 } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { LicenseBanner } from "@/components/layout/license-banner";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { cn } from "@/lib/utils";
 
@@ -135,26 +136,31 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useSidebar();
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen overflow-hidden bg-background flex">
       {/* Sidebar */}
       <Sidebar />
 
-      {/* Main area — adjusts based on sidebar width */}
+      {/* Main column — fills remaining width, clips overflow */}
       <div
         className={cn(
-          "flex-1 flex flex-col min-h-screen min-w-0",
+          "flex-1 flex flex-col min-w-0 h-screen overflow-hidden",
           "transition-[margin-left] duration-300 ease-in-out",
-          // On mobile, always full width (sidebar is overlay)
           "md:ml-0"
         )}
       >
+        {/* Header — always visible at top, no page scroll */}
         <Header />
-        <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
+
+        {/* License validity banner — shown on every page */}
+        <LicenseBanner />
+
+        {/* Scrollable content area */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6">
           <div className="animate-fadeIn">{children}</div>
         </main>
       </div>
 
-      {/* PWA install prompt — subtle bottom banner */}
+      {/* PWA install prompt */}
       <InstallPrompt />
     </div>
   );

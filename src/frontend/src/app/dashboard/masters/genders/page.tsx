@@ -5,6 +5,8 @@ import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { FieldError } from "@/components/ui/field-error";
+import { required, hasErrors, type ValidationError } from "@/lib/validators";
 
 interface Gender {
   genderId: string;
@@ -22,6 +24,7 @@ export default function GendersPage() {
   const [editingGender, setEditingGender] = useState<Gender | null>(null);
   const [formName, setFormName] = useState("");
   const [formActive, setFormActive] = useState(true);
+  const [errors, setErrors] = useState<ValidationError>({});
 
   const fetchGenders = useCallback(async () => {
     setLoading(true);
@@ -46,6 +49,7 @@ export default function GendersPage() {
     setEditingGender(null);
     setFormName("");
     setFormActive(true);
+    setErrors({});
     setModalOpen(true);
   };
 
@@ -53,11 +57,13 @@ export default function GendersPage() {
     setEditingGender(gender);
     setFormName(gender.genderName);
     setFormActive(gender.isActive);
+    setErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!formName.trim()) return;
+    const newErrors: ValidationError = { genderName: required(formName, "Gender Name") };
+    if (hasErrors(newErrors)) { setErrors(newErrors); return; }
     try {
       if (editingGender) {
         await api.put(`/api/genders/${editingGender.genderId}`, {
@@ -126,10 +132,11 @@ export default function GendersPage() {
             <input
               type="text"
               value={formName}
-              onChange={(e) => setFormName(e.target.value)}
+              onChange={(e) => { setFormName(e.target.value); setErrors((p) => ({ ...p, genderName: "" })); }}
               placeholder="Enter gender name"
-              className="w-full px-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${errors.genderName ? "border-destructive" : "border-input"}`}
             />
+            <FieldError error={errors.genderName} />
           </div>
           <div className="flex items-center gap-3">
             <button

@@ -5,6 +5,8 @@ import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { FieldError } from "@/components/ui/field-error";
+import { required, hasErrors, type ValidationError } from "@/lib/validators";
 
 interface SizeChart {
   sizeChartId: string;
@@ -48,6 +50,7 @@ export default function SizeChartPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSize, setEditingSize] = useState<SizeChart | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [errors, setErrors] = useState<ValidationError>({});
 
   // Tab state
   const [activeSizeType, setActiveSizeType] = useState<string>("Footwear");
@@ -101,11 +104,13 @@ export default function SizeChartPage() {
       sizeType: activeSizeType,
       gender: activeGender,
     });
+    setErrors({});
     setModalOpen(true);
   };
 
   const openEdit = (size: SizeChart) => {
     setEditingSize(size);
+    setErrors({});
     setForm({
       sizeType: size.sizeType,
       gender: size.gender,
@@ -121,7 +126,10 @@ export default function SizeChartPage() {
   };
 
   const handleSave = async () => {
-    if (!form.usSize.trim() && !form.indSize.trim()) return;
+    const newErrors: ValidationError = {
+      indSize: required(form.indSize, "IND Size"),
+    };
+    if (hasErrors(newErrors)) { setErrors(newErrors); return; }
     try {
       if (editingSize) {
         await api.put(`/api/sizecharts/${editingSize.sizeChartId}`, form);
@@ -305,14 +313,15 @@ export default function SizeChartPage() {
               />
             </div>
             <div>
-              <label className={labelClass}>IND Size</label>
+              <label className={labelClass}>IND Size *</label>
               <input
                 type="text"
                 value={form.indSize}
-                onChange={(e) => updateForm("indSize", e.target.value)}
+                onChange={(e) => { updateForm("indSize", e.target.value); setErrors((p) => ({ ...p, indSize: "" })); }}
                 placeholder="9"
-                className={inputClass}
+                className={`${inputClass} ${errors.indSize ? "border-destructive" : ""}`}
               />
+              <FieldError error={errors.indSize} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

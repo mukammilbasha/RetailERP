@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
+import { FieldError } from "@/components/ui/field-error";
+import { required, hasErrors, type ValidationError } from "@/lib/validators";
 
 interface Segment {
   segmentId: string;
@@ -28,6 +30,7 @@ export default function SubSegmentsPage() {
   const [editingSubSegment, setEditingSubSegment] = useState<SubSegment | null>(null);
   const [formName, setFormName] = useState("");
   const [formSegmentId, setFormSegmentId] = useState("");
+  const [errors, setErrors] = useState<ValidationError>({});
 
   const fetchSubSegments = useCallback(async () => {
     setLoading(true);
@@ -66,6 +69,7 @@ export default function SubSegmentsPage() {
     setEditingSubSegment(null);
     setFormName("");
     setFormSegmentId("");
+    setErrors({});
     setModalOpen(true);
   };
 
@@ -73,12 +77,16 @@ export default function SubSegmentsPage() {
     setEditingSubSegment(subSegment);
     setFormName(subSegment.subSegmentName);
     setFormSegmentId(subSegment.segmentId);
+    setErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!formName.trim()) return;
-    if (!formSegmentId) return;
+    const newErrors: ValidationError = {
+      segmentId: required(formSegmentId, "Segment"),
+      subSegmentName: required(formName, "Sub Segment Name"),
+    };
+    if (hasErrors(newErrors)) { setErrors(newErrors); return; }
     try {
       if (editingSubSegment) {
         await api.put(`/api/subsegments/${editingSubSegment.subSegmentId}`, {
@@ -146,8 +154,8 @@ export default function SubSegmentsPage() {
             <label className="block text-sm font-medium mb-1.5">Segment *</label>
             <select
               value={formSegmentId}
-              onChange={(e) => setFormSegmentId(e.target.value)}
-              className="w-full px-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-transparent"
+              onChange={(e) => { setFormSegmentId(e.target.value); setErrors((p) => ({ ...p, segmentId: "" })); }}
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-transparent ${errors.segmentId ? "border-destructive" : "border-input"}`}
             >
               <option value="">Select a segment</option>
               {segments.map((seg) => (
@@ -156,16 +164,18 @@ export default function SubSegmentsPage() {
                 </option>
               ))}
             </select>
+            <FieldError error={errors.segmentId} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Sub Segment Name *</label>
             <input
               type="text"
               value={formName}
-              onChange={(e) => setFormName(e.target.value)}
+              onChange={(e) => { setFormName(e.target.value); setErrors((p) => ({ ...p, subSegmentName: "" })); }}
               placeholder="Enter sub segment name"
-              className="w-full px-4 py-2.5 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${errors.subSegmentName ? "border-destructive" : "border-input"}`}
             />
+            <FieldError error={errors.subSegmentName} />
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm border rounded-lg hover:bg-muted">
