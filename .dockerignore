@@ -9,8 +9,8 @@
 **/.next
 **/dist
 **/coverage
-**/*.md
-**/docs
+# docs/ and *.md are needed by docs-app — do not exclude
+deployment/docs
 **/.env
 **/.env.local
 **/k8s

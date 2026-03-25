@@ -280,7 +280,7 @@ services:
       auth-api:
         condition: service_healthy
 
-  # ─── Frontend (port 3000) ──────────────────────────────
+  # ─── Frontend (port 3003) ──────────────────────────────
   frontend:
     build:
       context: .
@@ -292,8 +292,33 @@ services:
       NEXT_PUBLIC_API_URL: "http://localhost:5000"
     networks:
       - retailerp-network
+    restart: unless-stopped
     depends_on:
       - gateway
+    healthcheck:
+      test: wget -q --spider http://127.0.0.1:3000 || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ─── Docs UI (port 3100) ───────────────────────────────
+  docs:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.docs
+    container_name: retailerp-docs
+    ports:
+      - "3100:3100"
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    healthcheck:
+      test: wget -q --spider http://127.0.0.1:3100 || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 volumes:
   sqlserver-data:
