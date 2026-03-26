@@ -104,7 +104,7 @@ SQL SERVER EXPRESS MANUAL SETUP
      Open Notepad, paste and save as .env.db:
        SQLSERVER=.\SQLEXPRESS
        SQLUSER=ERPAdmin
-       SQLPASS=YourPassword
+       SQLPASS=ERP@admin
 
   7. Run START.bat
 

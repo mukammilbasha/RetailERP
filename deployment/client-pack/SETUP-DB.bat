@@ -36,7 +36,8 @@ if "%SQLSERVER%"=="" set SQLSERVER=.\SQLEXPRESS
 set /p SQLUSER=  SQL Login username [default: ERPAdmin]:
 if "%SQLUSER%"=="" set SQLUSER=ERPAdmin
 
-set /p SQLPASS=  SQL Login password:
+set /p SQLPASS=  SQL Login password [default: ERP@admin]:
+if "%SQLPASS%"=="" set SQLPASS=ERP@admin
 
 echo.
 echo  Testing connection to %SQLSERVER%...
