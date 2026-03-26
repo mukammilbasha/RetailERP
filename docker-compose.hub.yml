@@ -1,0 +1,241 @@
+# ================================================================
+#  RetailERP — Docker Hub Compose (No source code / build needed)
+#  Uses pre-built images from: hub.docker.com/r/mukammilbasha/retailerp
+#
+#  Usage:
+#    docker compose -f docker-compose.hub.yml up -d
+# ================================================================
+
+x-common-env: &common-env
+  ASPNETCORE_ENVIRONMENT: "Docker"
+  ASPNETCORE_URLS: "http://+:8080"
+  ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=RetailERP;User Id=sa;Password=RetailERP@2024!;TrustServerCertificate=true"
+  Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
+  Jwt__Issuer: "RetailERP.Auth"
+  Jwt__Audience: "RetailERP.Client"
+
+services:
+  # ─── Infrastructure ─────────────────────────────────────
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: retailerp-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "RetailERP@2024!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1434:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - retailerp-network
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "RetailERP@2024!" -Q "SELECT 1" -C -b
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: retailerp-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - retailerp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ─── Observability ──────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: retailerp-prometheus
+    ports:
+      - "9091:9090"
+    networks:
+      - retailerp-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: retailerp-grafana
+    ports:
+      - "3002:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - retailerp-network
+    depends_on:
+      - prometheus
+
+  # ─── Application Services (pre-built from Docker Hub) ───
+  auth-api:
+    image: mukammilbasha/retailerp:auth-api
+    container_name: retailerp-auth
+    ports:
+      - "5001:8080"
+    environment:
+      <<: *common-env
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:8080/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  product-api:
+    image: mukammilbasha/retailerp:product-api
+    container_name: retailerp-product
+    ports:
+      - "5002:8080"
+    environment:
+      <<: *common-env
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  inventory-api:
+    image: mukammilbasha/retailerp:inventory-api
+    container_name: retailerp-inventory
+    ports:
+      - "5003:8080"
+    environment:
+      <<: *common-env
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  order-api:
+    image: mukammilbasha/retailerp:order-api
+    container_name: retailerp-order
+    ports:
+      - "5004:8080"
+    environment:
+      <<: *common-env
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  production-api:
+    image: mukammilbasha/retailerp:production-api
+    container_name: retailerp-production
+    ports:
+      - "5005:8080"
+    environment:
+      <<: *common-env
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  billing-api:
+    image: mukammilbasha/retailerp:billing-api
+    container_name: retailerp-billing
+    ports:
+      - "5006:8080"
+    environment:
+      <<: *common-env
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  reporting-api:
+    image: mukammilbasha/retailerp:reporting-api
+    container_name: retailerp-reporting
+    ports:
+      - "5007:8080"
+    environment:
+      <<: *common-env
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  gateway:
+    image: mukammilbasha/retailerp:gateway
+    container_name: retailerp-gateway
+    ports:
+      - "5000:8080"
+    environment:
+      <<: *common-env
+      Cors__Origins__0: "http://localhost:3003"
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    depends_on:
+      auth-api:
+        condition: service_healthy
+
+  frontend:
+    image: mukammilbasha/retailerp:frontend
+    container_name: retailerp-frontend
+    ports:
+      - "3003:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:5000"
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    healthcheck:
+      test: wget -q --spider http://127.0.0.1:3000 || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  docs:
+    image: mukammilbasha/retailerp:docs
+    container_name: retailerp-docs
+    ports:
+      - "3100:3100"
+    networks:
+      - retailerp-network
+    restart: unless-stopped
+    healthcheck:
+      test: wget -q --spider http://127.0.0.1:3100 || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  retailerp-network:
+    driver: bridge
