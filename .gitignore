@@ -44,3 +44,5 @@ logs/
 .claude/
 .zencoder/
 .zenflow/
+deployment/client-pack/images/
+publish/

@@ -1,49 +1,9 @@
-# RetailERP — Client Deployment
-# Uses pre-built images from Docker Hub (no source code required)
-#
-# Mode A: Uses your existing SQL Server Express (run SETUP-DB.bat first)
-#         Set USE_EXTERNAL_DB=true in .env  OR  just set DB_SERVER, DB_USER, DB_PASS
-#
-# Mode B: Uses built-in Docker SQL Server (default, no setup needed)
-#         Leave .env as-is
-
-x-common-env: &common-env
-  ASPNETCORE_ENVIRONMENT: "Production"
-  ASPNETCORE_URLS: "http://+:8080"
-  ConnectionStrings__DefaultConnection: >-
-    Server=${DB_SERVER:-sqlserver};
-    Database=${DB_NAME:-RetailERP};
-    User Id=${DB_USER:-sa};
-    Password=${DB_PASS:-RetailERP@2024!};
-    TrustServerCertificate=true
-  Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
-  Jwt__Issuer: "RetailERP.Auth"
-  Jwt__Audience: "RetailERP.Client"
+# RetailERP — Offline Client Deployment
+# All images loaded from local tar files (no internet required)
+# SQL Server: connects to existing SQL Server Express on host machine
+# No Grafana / Prometheus / SQL Docker container
 
 services:
-
-  # ── Built-in SQL Server (skipped when USE_EXTERNAL_DB=true) ─
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: retailerp-sqlserver
-    profiles: ["internal-db"]
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "RetailERP@2024!"
-      MSSQL_PID: "Developer"
-    ports:
-      - "1435:1433"
-    volumes:
-      - sqlserver-data:/var/opt/mssql
-    networks:
-      - retailerp-network
-    restart: unless-stopped
-    healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "RetailERP@2024!" -Q "SELECT 1" -C -b
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 45s
 
   redis:
     image: redis:7-alpine
@@ -65,7 +25,14 @@ services:
     ports:
       - "5001:8080"
     environment:
-      <<: *common-env
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
+      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
+      Jwt__Issuer: "RetailERP.Auth"
+      Jwt__Audience: "RetailERP.Client"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - retailerp-network
     restart: unless-stopped
@@ -85,7 +52,14 @@ services:
     ports:
       - "5002:8080"
     environment:
-      <<: *common-env
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
+      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
+      Jwt__Issuer: "RetailERP.Auth"
+      Jwt__Audience: "RetailERP.Client"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - retailerp-network
     restart: unless-stopped
@@ -96,7 +70,14 @@ services:
     ports:
       - "5003:8080"
     environment:
-      <<: *common-env
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
+      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
+      Jwt__Issuer: "RetailERP.Auth"
+      Jwt__Audience: "RetailERP.Client"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - retailerp-network
     restart: unless-stopped
@@ -107,7 +88,14 @@ services:
     ports:
       - "5004:8080"
     environment:
-      <<: *common-env
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
+      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
+      Jwt__Issuer: "RetailERP.Auth"
+      Jwt__Audience: "RetailERP.Client"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - retailerp-network
     restart: unless-stopped
@@ -118,7 +106,14 @@ services:
     ports:
       - "5005:8080"
     environment:
-      <<: *common-env
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
+      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
+      Jwt__Issuer: "RetailERP.Auth"
+      Jwt__Audience: "RetailERP.Client"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - retailerp-network
     restart: unless-stopped
@@ -129,7 +124,14 @@ services:
     ports:
       - "5006:8080"
     environment:
-      <<: *common-env
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
+      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
+      Jwt__Issuer: "RetailERP.Auth"
+      Jwt__Audience: "RetailERP.Client"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - retailerp-network
     restart: unless-stopped
@@ -140,7 +142,14 @@ services:
     ports:
       - "5007:8080"
     environment:
-      <<: *common-env
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
+      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
+      Jwt__Issuer: "RetailERP.Auth"
+      Jwt__Audience: "RetailERP.Client"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - retailerp-network
     restart: unless-stopped
@@ -151,8 +160,15 @@ services:
     ports:
       - "5000:8080"
     environment:
-      <<: *common-env
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
+      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
+      Jwt__Issuer: "RetailERP.Auth"
+      Jwt__Audience: "RetailERP.Client"
       Cors__Origins__0: "http://localhost:3003"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - retailerp-network
     restart: unless-stopped
@@ -188,23 +204,8 @@ services:
       - retailerp-network
     restart: unless-stopped
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: retailerp-grafana
-    ports:
-      - "3002:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: "admin"
-    volumes:
-      - grafana-data:/var/lib/grafana
-    networks:
-      - retailerp-network
-    restart: unless-stopped
-
 volumes:
-  sqlserver-data:
   redis-data:
-  grafana-data:
 
 networks:
   retailerp-network:

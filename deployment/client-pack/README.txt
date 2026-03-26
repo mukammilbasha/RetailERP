@@ -1,62 +1,32 @@
 =====================================================
-  RetailERP — Client Deployment Package
+  RetailERP — Offline Client Deployment Package
   Version: v1.0.0
-  Docker Hub: hub.docker.com/r/mukammilbasha/retailerp
 =====================================================
 
-REQUIREMENT
------------
-  Docker Desktop must be installed and running.
-  Download: https://www.docker.com/products/docker-desktop
+REQUIREMENTS
+------------
+  1. Docker Desktop installed and running
+     Download: https://www.docker.com/products/docker-desktop
+
+  2. SQL Server Express already installed
+     Instance: .\SQLEXPRESS
+     Login:    ERPAdmin / ERP@admin
+
+  3. SQL Server Express TCP/IP enabled on port 1433
+     (see SQL SERVER SETUP section below)
 
   Minimum specs:
-    RAM   : 4 GB (8 GB recommended)
-    Disk  : 10 GB free
-    OS    : Windows 10/11, Windows Server 2012+
+    RAM  : 4 GB (8 GB recommended)
+    Disk : 5 GB free (images included in this pack)
+    OS   : Windows 10/11 or Windows Server 2012+
 
 
-=====================================================
-  OPTION A — Use Your Existing SQL Server Express
-  (Recommended if SQL Server Express is installed)
-=====================================================
-
-  Step 1: Run SETUP-DB.bat
-          - Enables TCP/IP on SQL Server Express
-          - Creates RetailERP database
-          - Saves connection config to .env.db
-
-  Step 2: Run START.bat
-          - Detects .env.db automatically
-          - Uses your SQL Server Express (host.docker.internal)
-          - Starts all API and frontend containers only
-
-  SQL Server settings required:
-    - TCP/IP enabled (SETUP-DB.bat does this)
-    - SQL Server Browser running (SETUP-DB.bat does this)
-    - Port 1433 open on firewall
-    - SQL login with db_owner on RetailERP database
-
-
-=====================================================
-  OPTION B — Built-in Docker SQL Server
-  (Use if you don't have SQL Server Express)
-=====================================================
-
-  Step 1: Run START.bat
-          - No .env.db file = auto uses Docker SQL Server
-          - Downloads and starts SQL Server in a container
-          - Takes more RAM (~1.5 GB extra)
-
-
-=====================================================
-  FIRST TIME SETUP (Either Option)
-=====================================================
-
+QUICK START
+-----------
   1. Install Docker Desktop
-  2. [OPTION A ONLY] Run SETUP-DB.bat
-  3. Run START.bat
-  4. Wait 5-10 minutes (first run downloads images)
-  5. Browser opens automatically → http://localhost:3003
+  2. Enable TCP/IP on SQL Server Express (see below)
+  3. Double-click START.bat
+  4. Browser opens at http://localhost:3003
 
 
 LOGIN
@@ -69,71 +39,61 @@ LOGIN
 SERVICE URLS
 ------------
   Frontend     http://localhost:3003
-  Docs         http://localhost:3100
+  Docs UI      http://localhost:3100
   API Gateway  http://localhost:5000
-  Grafana      http://localhost:3002  (admin / admin)
 
 
-SQL SERVER EXPRESS MANUAL SETUP
---------------------------------
-  If SETUP-DB.bat fails, do these steps manually:
+SQL SERVER EXPRESS - ENABLE TCP/IP (ONE TIME)
+----------------------------------------------
+  1. Open: Start → SQL Server Configuration Manager
 
-  1. Open SQL Server Configuration Manager
-     Start → search "SQL Server Configuration Manager"
-
-  2. Enable TCP/IP:
+  2. Navigate to:
      SQL Server Network Configuration
      → Protocols for SQLEXPRESS
      → TCP/IP → Right-click → Enable
 
-  3. Set static port 1433:
+  3. Set static port:
      TCP/IP → Properties → IP Addresses tab
-     → IPAll → TcpPort = 1433
-     → TcpDynamicPorts = (clear/empty)
+     → Scroll to IPAll
+     → TcpPort      = 1433
+     → TcpDynamicPorts = (leave empty)
+     → Click OK
 
-  4. Enable SQL Server Browser:
+  4. Start SQL Server Browser:
      SQL Server Services
      → SQL Server Browser → Right-click → Start
      → Properties → Start Mode = Automatic
 
   5. Restart SQL Server Express:
      SQL Server Services
-     → SQL Server (SQLEXPRESS) → Restart
+     → SQL Server (SQLEXPRESS) → Right-click → Restart
 
-  6. Create .env.db manually:
-     Open Notepad, paste and save as .env.db:
-       SQLSERVER=.\SQLEXPRESS
-       SQLUSER=ERPAdmin
-       SQLPASS=ERP@admin
-
-  7. Run START.bat
+  6. Allow port 1433 in Windows Firewall:
+     Run in Command Prompt (as Admin):
+     netsh advfirewall firewall add rule name="SQL Express 1433"
+       protocol=TCP dir=in localport=1433 action=allow
 
 
 SCRIPTS
 -------
-  SETUP-DB.bat — Configure SQL Server Express + create DB
-  START.bat    — Start all services (auto-detects SQL mode)
-  STOP.bat     — Stop all services (data is kept)
-  UPDATE.bat   — Download latest version from Docker Hub
-  RESET.bat    — Full reset (WARNING: deletes all data)
+  START.bat  — Load images and start all services
+  STOP.bat   — Stop all services (data preserved)
+  RESET.bat  — Stop and clear containers (SQL data safe)
 
 
 TROUBLESHOOTING
 ---------------
-  Q: "Cannot connect to SQL Server"
-  A: Check TCP/IP is enabled and port 1433 is set.
-     Restart SQL Server Express after changes.
-
-  Q: Services show "unhealthy" after start
-  A: Wait 2 more minutes — APIs wait for DB to be ready.
-
-  Q: Port already in use
-  A: Change the left port number in docker-compose.yml
-     Example: "3010:3000" uses port 3010 for frontend
+  Q: "Connection refused" or APIs show unhealthy
+  A: SQL Server TCP/IP not enabled or port 1433 not set.
+     Follow SQL SERVER SETUP steps above.
 
   Q: Docker not running
   A: Open Docker Desktop from taskbar, wait for whale
-     icon to stop animating.
+     icon to stop animating, then run START.bat again.
+
+  Q: Port already in use
+  A: Edit docker-compose.yml — change left port number.
+     Example: "3010:3000" uses port 3010 for frontend.
 
   Q: Out of memory
   A: Docker Desktop → Settings → Resources → Memory → 6 GB

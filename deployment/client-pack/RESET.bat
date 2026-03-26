@@ -1,37 +1,15 @@
 @echo off
 title RetailERP - Reset
 color 0C
-
 echo.
-echo  =====================================================
-echo    RetailERP - Full Reset (clears all data)
-echo  =====================================================
+echo  WARNING: This stops all containers and clears Redis cache.
+echo  Your SQL Server data is NOT affected.
 echo.
-echo  WARNING: This will DELETE all database data!
-echo  All transactions, masters, and settings will be lost.
+set /p confirm=Type YES to confirm:
+if /i not "%confirm%"=="YES" ( echo Cancelled. & pause & exit /b 0 )
 echo.
-set /p confirm="Type YES to confirm reset: "
-if /i not "%confirm%"=="YES" (
-    echo  Reset cancelled.
-    pause
-    exit /b 0
-)
-
-echo.
-echo  Stopping and removing all containers and data...
 docker compose down -v --remove-orphans
-
 echo.
-echo  Removing cached images...
-docker compose pull
-
+echo  Reset complete. Run START.bat to restart.
 echo.
-echo  Starting fresh...
-docker compose up -d
-
-echo.
-echo  Reset complete! Fresh installation starting...
-echo.
-timeout /t 30 /nobreak >nul
-start "" "http://localhost:3003"
 pause
