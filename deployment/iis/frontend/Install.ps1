@@ -109,8 +109,8 @@ Write-OK "IIS Site created on port $Port"
 # ── Set permissions ───────────────────────────────────────────
 Write-Step "Setting permissions"
 $acl = Get-Acl $InstallDir
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-    "IIS AppPool\$AppPool", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+$ruleArgs = @("IIS AppPool\$AppPool", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule $ruleArgs
 $acl.SetAccessRule($rule)
 Set-Acl $InstallDir $acl
 Write-OK "Permissions set for IIS AppPool\$AppPool"
