@@ -12,22 +12,51 @@ REQUIREMENT
   Minimum specs:
     RAM   : 4 GB (8 GB recommended)
     Disk  : 10 GB free
-    OS    : Windows 10/11, Ubuntu, macOS
+    OS    : Windows 10/11, Windows Server 2012+
 
 
-FIRST TIME SETUP
-----------------
-  Windows:
-    1. Install Docker Desktop
-    2. Double-click  START.bat
-    3. Wait 5-10 min for images to download
-    4. Browser opens automatically at http://localhost:3003
+=====================================================
+  OPTION A — Use Your Existing SQL Server Express
+  (Recommended if SQL Server Express is installed)
+=====================================================
 
-  Linux / Mac:
-    1. Install Docker Engine
-    2. chmod +x start.sh stop.sh
-    3. ./start.sh
-    4. Open http://localhost:3003
+  Step 1: Run SETUP-DB.bat
+          - Enables TCP/IP on SQL Server Express
+          - Creates RetailERP database
+          - Saves connection config to .env.db
+
+  Step 2: Run START.bat
+          - Detects .env.db automatically
+          - Uses your SQL Server Express (host.docker.internal)
+          - Starts all API and frontend containers only
+
+  SQL Server settings required:
+    - TCP/IP enabled (SETUP-DB.bat does this)
+    - SQL Server Browser running (SETUP-DB.bat does this)
+    - Port 1433 open on firewall
+    - SQL login with db_owner on RetailERP database
+
+
+=====================================================
+  OPTION B — Built-in Docker SQL Server
+  (Use if you don't have SQL Server Express)
+=====================================================
+
+  Step 1: Run START.bat
+          - No .env.db file = auto uses Docker SQL Server
+          - Downloads and starts SQL Server in a container
+          - Takes more RAM (~1.5 GB extra)
+
+
+=====================================================
+  FIRST TIME SETUP (Either Option)
+=====================================================
+
+  1. Install Docker Desktop
+  2. [OPTION A ONLY] Run SETUP-DB.bat
+  3. Run START.bat
+  4. Wait 5-10 minutes (first run downloads images)
+  5. Browser opens automatically → http://localhost:3003
 
 
 LOGIN
@@ -45,39 +74,68 @@ SERVICE URLS
   Grafana      http://localhost:3002  (admin / admin)
 
 
+SQL SERVER EXPRESS MANUAL SETUP
+--------------------------------
+  If SETUP-DB.bat fails, do these steps manually:
+
+  1. Open SQL Server Configuration Manager
+     Start → search "SQL Server Configuration Manager"
+
+  2. Enable TCP/IP:
+     SQL Server Network Configuration
+     → Protocols for SQLEXPRESS
+     → TCP/IP → Right-click → Enable
+
+  3. Set static port 1433:
+     TCP/IP → Properties → IP Addresses tab
+     → IPAll → TcpPort = 1433
+     → TcpDynamicPorts = (clear/empty)
+
+  4. Enable SQL Server Browser:
+     SQL Server Services
+     → SQL Server Browser → Right-click → Start
+     → Properties → Start Mode = Automatic
+
+  5. Restart SQL Server Express:
+     SQL Server Services
+     → SQL Server (SQLEXPRESS) → Restart
+
+  6. Create .env.db manually:
+     Open Notepad, paste and save as .env.db:
+       SQLSERVER=.\SQLEXPRESS
+       SQLUSER=ERPAdmin
+       SQLPASS=YourPassword
+
+  7. Run START.bat
+
+
 SCRIPTS
 -------
-  START.bat    — Pull latest images & start all services
+  SETUP-DB.bat — Configure SQL Server Express + create DB
+  START.bat    — Start all services (auto-detects SQL mode)
   STOP.bat     — Stop all services (data is kept)
   UPDATE.bat   — Download latest version from Docker Hub
   RESET.bat    — Full reset (WARNING: deletes all data)
 
-  start.sh     — Linux/Mac start
-  stop.sh      — Linux/Mac stop
-
-
-AFTER UPDATES
--------------
-  When a new version is released, just run UPDATE.bat
-  It will download the new images and restart automatically.
-  Your data is always preserved during updates.
-
 
 TROUBLESHOOTING
 ---------------
-  Q: Services show "unhealthy" or "starting"
-  A: Wait 2 more minutes. SQL Server takes time on first launch.
+  Q: "Cannot connect to SQL Server"
+  A: Check TCP/IP is enabled and port 1433 is set.
+     Restart SQL Server Express after changes.
 
-  Q: Port already in use error
-  A: Another app is using the same port. Stop it or change
-     the port in docker-compose.yml (left side of the colon).
-     Example: "3010:3000" uses port 3010 instead of 3003.
+  Q: Services show "unhealthy" after start
+  A: Wait 2 more minutes — APIs wait for DB to be ready.
+
+  Q: Port already in use
+  A: Change the left port number in docker-compose.yml
+     Example: "3010:3000" uses port 3010 for frontend
 
   Q: Docker not running
-  A: Open Docker Desktop from the Start menu and wait for
-     the whale icon in the taskbar to stop animating.
+  A: Open Docker Desktop from taskbar, wait for whale
+     icon to stop animating.
 
   Q: Out of memory
-  A: In Docker Desktop: Settings > Resources > Memory > 6 GB
+  A: Docker Desktop → Settings → Resources → Memory → 6 GB
 
 =====================================================

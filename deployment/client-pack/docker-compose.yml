@@ -1,25 +1,38 @@
-# RetailERP — Client Deployment (Docker Hub images)
-# No source code required. All images pulled from Docker Hub automatically.
+# RetailERP — Client Deployment
+# Uses pre-built images from Docker Hub (no source code required)
+#
+# Mode A: Uses your existing SQL Server Express (run SETUP-DB.bat first)
+#         Set USE_EXTERNAL_DB=true in .env  OR  just set DB_SERVER, DB_USER, DB_PASS
+#
+# Mode B: Uses built-in Docker SQL Server (default, no setup needed)
+#         Leave .env as-is
 
 x-common-env: &common-env
   ASPNETCORE_ENVIRONMENT: "Production"
   ASPNETCORE_URLS: "http://+:8080"
-  ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=RetailERP;User Id=sa;Password=RetailERP@2024!;TrustServerCertificate=true"
+  ConnectionStrings__DefaultConnection: >-
+    Server=${DB_SERVER:-sqlserver};
+    Database=${DB_NAME:-RetailERP};
+    User Id=${DB_USER:-sa};
+    Password=${DB_PASS:-RetailERP@2024!};
+    TrustServerCertificate=true
   Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
   Jwt__Issuer: "RetailERP.Auth"
   Jwt__Audience: "RetailERP.Client"
 
 services:
 
+  # ── Built-in SQL Server (skipped when USE_EXTERNAL_DB=true) ─
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: retailerp-sqlserver
+    profiles: ["internal-db"]
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "RetailERP@2024!"
       MSSQL_PID: "Developer"
     ports:
-      - "1434:1433"
+      - "1435:1433"
     volumes:
       - sqlserver-data:/var/opt/mssql
     networks:
@@ -57,8 +70,6 @@ services:
       - retailerp-network
     restart: unless-stopped
     depends_on:
-      sqlserver:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -78,9 +89,6 @@ services:
     networks:
       - retailerp-network
     restart: unless-stopped
-    depends_on:
-      sqlserver:
-        condition: service_healthy
 
   inventory-api:
     image: mukammilbasha/retailerp:inventory-api
@@ -92,9 +100,6 @@ services:
     networks:
       - retailerp-network
     restart: unless-stopped
-    depends_on:
-      sqlserver:
-        condition: service_healthy
 
   order-api:
     image: mukammilbasha/retailerp:order-api
@@ -106,9 +111,6 @@ services:
     networks:
       - retailerp-network
     restart: unless-stopped
-    depends_on:
-      sqlserver:
-        condition: service_healthy
 
   production-api:
     image: mukammilbasha/retailerp:production-api
@@ -120,9 +122,6 @@ services:
     networks:
       - retailerp-network
     restart: unless-stopped
-    depends_on:
-      sqlserver:
-        condition: service_healthy
 
   billing-api:
     image: mukammilbasha/retailerp:billing-api
@@ -134,9 +133,6 @@ services:
     networks:
       - retailerp-network
     restart: unless-stopped
-    depends_on:
-      sqlserver:
-        condition: service_healthy
 
   reporting-api:
     image: mukammilbasha/retailerp:reporting-api
@@ -148,9 +144,6 @@ services:
     networks:
       - retailerp-network
     restart: unless-stopped
-    depends_on:
-      sqlserver:
-        condition: service_healthy
 
   gateway:
     image: mukammilbasha/retailerp:gateway
@@ -194,12 +187,6 @@ services:
     networks:
       - retailerp-network
     restart: unless-stopped
-    healthcheck:
-      test: wget -q --spider http://127.0.0.1:3100 || exit 1
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
 
   grafana:
     image: grafana/grafana:latest
