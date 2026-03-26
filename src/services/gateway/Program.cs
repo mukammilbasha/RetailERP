@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Microsoft.OpenApi.Models;
 using Prometheus;
 using Serilog;
 
@@ -46,9 +47,28 @@ builder.Services.AddCors(options =>
               .AllowCredentials());
 });
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "RetailERP API Gateway",
+        Version = "v1",
+        Description = "YARP reverse proxy gateway — routes requests to all RetailERP microservices."
+    });
+});
+
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "RetailERP API Gateway v1");
+    c.RoutePrefix = "swagger";
+    c.DocumentTitle = "RetailERP API Gateway";
+});
 
 app.UseSerilogRequestLogging();
 app.UseCors("AllowFrontend");

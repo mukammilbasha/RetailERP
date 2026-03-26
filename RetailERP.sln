@@ -1,72 +1,55 @@
-
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34330.188
 MinimumVisualStudioVersion = 10.0.40219.1
-
-# Shared Libraries
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Shared.Domain", "src\shared\RetailERP.Shared.Domain\RetailERP.Shared.Domain.csproj", "{A1B2C3D4-0001-0001-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Shared.Domain", "src\shared\RetailERP.Shared.Domain\RetailERP.Shared.Domain.csproj", "{A1B2C3D4-0001-0001-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Shared.Infrastructure", "src\shared\RetailERP.Shared.Infrastructure\RetailERP.Shared.Infrastructure.csproj", "{A1B2C3D4-0001-0001-0001-000000000002}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Shared.Infrastructure", "src\shared\RetailERP.Shared.Infrastructure\RetailERP.Shared.Infrastructure.csproj", "{A1B2C3D4-0001-0001-0001-000000000002}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Shared.Contracts", "src\shared\RetailERP.Shared.Contracts\RetailERP.Shared.Contracts.csproj", "{A1B2C3D4-0001-0001-0001-000000000003}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Shared.Contracts", "src\shared\RetailERP.Shared.Contracts\RetailERP.Shared.Contracts.csproj", "{A1B2C3D4-0001-0001-0001-000000000003}"
 EndProject
-
-# API Gateway
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Gateway", "src\services\gateway\RetailERP.Gateway.csproj", "{A1B2C3D4-0002-0001-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Gateway", "src\services\gateway\RetailERP.Gateway.csproj", "{A1B2C3D4-0002-0001-0001-000000000001}"
 EndProject
-
-# Auth Service
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Auth.Domain", "src\services\auth\RetailERP.Auth.Domain\RetailERP.Auth.Domain.csproj", "{A1B2C3D4-0003-0001-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Auth.Domain", "src\services\auth\RetailERP.Auth.Domain\RetailERP.Auth.Domain.csproj", "{A1B2C3D4-0003-0001-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Auth.Application", "src\services\auth\RetailERP.Auth.Application\RetailERP.Auth.Application.csproj", "{A1B2C3D4-0003-0002-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Auth.Application", "src\services\auth\RetailERP.Auth.Application\RetailERP.Auth.Application.csproj", "{A1B2C3D4-0003-0002-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Auth.Infrastructure", "src\services\auth\RetailERP.Auth.Infrastructure\RetailERP.Auth.Infrastructure.csproj", "{A1B2C3D4-0003-0003-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Auth.Infrastructure", "src\services\auth\RetailERP.Auth.Infrastructure\RetailERP.Auth.Infrastructure.csproj", "{A1B2C3D4-0003-0003-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Auth.API", "src\services\auth\RetailERP.Auth.API\RetailERP.Auth.API.csproj", "{A1B2C3D4-0003-0004-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Auth.API", "src\services\auth\RetailERP.Auth.API\RetailERP.Auth.API.csproj", "{A1B2C3D4-0003-0004-0001-000000000001}"
 EndProject
-
-# Product Service
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Product.Domain", "src\services\product\RetailERP.Product.Domain\RetailERP.Product.Domain.csproj", "{A1B2C3D4-0004-0001-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Product.Domain", "src\services\product\RetailERP.Product.Domain\RetailERP.Product.Domain.csproj", "{A1B2C3D4-0004-0001-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Product.Application", "src\services\product\RetailERP.Product.Application\RetailERP.Product.Application.csproj", "{A1B2C3D4-0004-0002-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Product.Application", "src\services\product\RetailERP.Product.Application\RetailERP.Product.Application.csproj", "{A1B2C3D4-0004-0002-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Product.Infrastructure", "src\services\product\RetailERP.Product.Infrastructure\RetailERP.Product.Infrastructure.csproj", "{A1B2C3D4-0004-0003-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Product.Infrastructure", "src\services\product\RetailERP.Product.Infrastructure\RetailERP.Product.Infrastructure.csproj", "{A1B2C3D4-0004-0003-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Product.API", "src\services\product\RetailERP.Product.API\RetailERP.Product.API.csproj", "{A1B2C3D4-0004-0004-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Product.API", "src\services\product\RetailERP.Product.API\RetailERP.Product.API.csproj", "{A1B2C3D4-0004-0004-0001-000000000001}"
 EndProject
-
-# Inventory Service
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Inventory.Domain", "src\services\inventory\RetailERP.Inventory.Domain\RetailERP.Inventory.Domain.csproj", "{A1B2C3D4-0005-0001-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Inventory.Domain", "src\services\inventory\RetailERP.Inventory.Domain\RetailERP.Inventory.Domain.csproj", "{A1B2C3D4-0005-0001-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Inventory.Application", "src\services\inventory\RetailERP.Inventory.Application\RetailERP.Inventory.Application.csproj", "{A1B2C3D4-0005-0002-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Inventory.Application", "src\services\inventory\RetailERP.Inventory.Application\RetailERP.Inventory.Application.csproj", "{A1B2C3D4-0005-0002-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Inventory.Infrastructure", "src\services\inventory\RetailERP.Inventory.Infrastructure\RetailERP.Inventory.Infrastructure.csproj", "{A1B2C3D4-0005-0003-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Inventory.Infrastructure", "src\services\inventory\RetailERP.Inventory.Infrastructure\RetailERP.Inventory.Infrastructure.csproj", "{A1B2C3D4-0005-0003-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Inventory.API", "src\services\inventory\RetailERP.Inventory.API\RetailERP.Inventory.API.csproj", "{A1B2C3D4-0005-0004-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Inventory.API", "src\services\inventory\RetailERP.Inventory.API\RetailERP.Inventory.API.csproj", "{A1B2C3D4-0005-0004-0001-000000000001}"
 EndProject
-
-# Order Service
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Order.Domain", "src\services\order\RetailERP.Order.Domain\RetailERP.Order.Domain.csproj", "{A1B2C3D4-0006-0001-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Order.Domain", "src\services\order\RetailERP.Order.Domain\RetailERP.Order.Domain.csproj", "{A1B2C3D4-0006-0001-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Order.Application", "src\services\order\RetailERP.Order.Application\RetailERP.Order.Application.csproj", "{A1B2C3D4-0006-0002-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Order.Application", "src\services\order\RetailERP.Order.Application\RetailERP.Order.Application.csproj", "{A1B2C3D4-0006-0002-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Order.Infrastructure", "src\services\order\RetailERP.Order.Infrastructure\RetailERP.Order.Infrastructure.csproj", "{A1B2C3D4-0006-0003-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Order.Infrastructure", "src\services\order\RetailERP.Order.Infrastructure\RetailERP.Order.Infrastructure.csproj", "{A1B2C3D4-0006-0003-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Order.API", "src\services\order\RetailERP.Order.API\RetailERP.Order.API.csproj", "{A1B2C3D4-0006-0004-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Order.API", "src\services\order\RetailERP.Order.API\RetailERP.Order.API.csproj", "{A1B2C3D4-0006-0004-0001-000000000001}"
 EndProject
-
-# Billing Service
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Billing.Domain", "src\services\billing\RetailERP.Billing.Domain\RetailERP.Billing.Domain.csproj", "{A1B2C3D4-0007-0001-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Billing.Domain", "src\services\billing\RetailERP.Billing.Domain\RetailERP.Billing.Domain.csproj", "{A1B2C3D4-0007-0001-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Billing.Application", "src\services\billing\RetailERP.Billing.Application\RetailERP.Billing.Application.csproj", "{A1B2C3D4-0007-0002-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Billing.Application", "src\services\billing\RetailERP.Billing.Application\RetailERP.Billing.Application.csproj", "{A1B2C3D4-0007-0002-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Billing.Infrastructure", "src\services\billing\RetailERP.Billing.Infrastructure\RetailERP.Billing.Infrastructure.csproj", "{A1B2C3D4-0007-0003-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Billing.Infrastructure", "src\services\billing\RetailERP.Billing.Infrastructure\RetailERP.Billing.Infrastructure.csproj", "{A1B2C3D4-0007-0003-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Billing.API", "src\services\billing\RetailERP.Billing.API\RetailERP.Billing.API.csproj", "{A1B2C3D4-0007-0004-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Billing.API", "src\services\billing\RetailERP.Billing.API\RetailERP.Billing.API.csproj", "{A1B2C3D4-0007-0004-0001-000000000001}"
 EndProject
-
-# Warehouse Service
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Warehouse.Domain", "src\services\warehouse\RetailERP.Warehouse.Domain\RetailERP.Warehouse.Domain.csproj", "{A1B2C3D4-0008-0001-0001-000000000001}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Warehouse.Application", "src\services\warehouse\RetailERP.Warehouse.Application\RetailERP.Warehouse.Application.csproj", "{A1B2C3D4-0008-0002-0001-000000000001}"
@@ -75,24 +58,140 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Warehouse.Infrast
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Warehouse.API", "src\services\warehouse\RetailERP.Warehouse.API\RetailERP.Warehouse.API.csproj", "{A1B2C3D4-0008-0004-0001-000000000001}"
 EndProject
-
-# Production Service
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Production.Domain", "src\services\production\RetailERP.Production.Domain\RetailERP.Production.Domain.csproj", "{A1B2C3D4-0009-0001-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Production.Domain", "src\services\production\RetailERP.Production.Domain\RetailERP.Production.Domain.csproj", "{A1B2C3D4-0009-0001-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Production.Application", "src\services\production\RetailERP.Production.Application\RetailERP.Production.Application.csproj", "{A1B2C3D4-0009-0002-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Production.Application", "src\services\production\RetailERP.Production.Application\RetailERP.Production.Application.csproj", "{A1B2C3D4-0009-0002-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Production.Infrastructure", "src\services\production\RetailERP.Production.Infrastructure\RetailERP.Production.Infrastructure.csproj", "{A1B2C3D4-0009-0003-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Production.Infrastructure", "src\services\production\RetailERP.Production.Infrastructure\RetailERP.Production.Infrastructure.csproj", "{A1B2C3D4-0009-0003-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Production.API", "src\services\production\RetailERP.Production.API\RetailERP.Production.API.csproj", "{A1B2C3D4-0009-0004-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Production.API", "src\services\production\RetailERP.Production.API\RetailERP.Production.API.csproj", "{A1B2C3D4-0009-0004-0001-000000000001}"
 EndProject
-
-# Reporting Service
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailERP.Reporting.API", "src\services\reporting\RetailERP.Reporting.API\RetailERP.Reporting.API.csproj", "{A1B2C3D4-0010-0001-0001-000000000001}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RetailERP.Reporting.API", "src\services\reporting\RetailERP.Reporting.API\RetailERP.Reporting.API.csproj", "{A1B2C3D4-0010-0001-0001-000000000001}"
 EndProject
-
 Global
-    GlobalSection(SolutionConfigurationPlatforms) = preSolution
-        Debug|Any CPU = Debug|Any CPU
-        Release|Any CPU = Release|Any CPU
-    EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1B2C3D4-0001-0001-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000002}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000003}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000003}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0001-0001-0001-000000000003}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0002-0001-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0002-0001-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0002-0001-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0002-0001-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0003-0001-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0003-0001-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0003-0001-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0003-0001-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0003-0002-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0003-0002-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0003-0002-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0003-0002-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0003-0003-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0003-0003-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0003-0003-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0003-0003-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0003-0004-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0003-0004-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0003-0004-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0003-0004-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0004-0001-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0004-0001-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0004-0001-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0004-0001-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0004-0002-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0004-0002-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0004-0002-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0004-0002-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0004-0003-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0004-0003-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0004-0003-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0004-0003-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0004-0004-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0004-0004-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0004-0004-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0004-0004-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0005-0001-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0005-0001-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0005-0001-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0005-0001-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0005-0002-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0005-0002-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0005-0002-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0005-0002-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0005-0003-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0005-0003-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0005-0003-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0005-0003-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0005-0004-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0005-0004-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0005-0004-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0005-0004-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0006-0001-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0006-0001-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0006-0001-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0006-0001-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0006-0002-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0006-0002-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0006-0002-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0006-0002-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0006-0003-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0006-0003-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0006-0003-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0006-0003-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0006-0004-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0006-0004-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0006-0004-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0006-0004-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0007-0001-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0007-0001-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0007-0001-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0007-0001-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0007-0002-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0007-0002-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0007-0002-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0007-0002-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0007-0003-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0007-0003-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0007-0003-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0007-0003-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0007-0004-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0007-0004-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0007-0004-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0007-0004-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0009-0001-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0009-0001-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0009-0001-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0009-0001-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0009-0002-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0009-0002-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0009-0002-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0009-0002-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0009-0003-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0009-0003-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0009-0003-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0009-0003-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0009-0004-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0009-0004-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0009-0004-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0009-0004-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-0010-0001-0001-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-0010-0001-0001-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-0010-0001-0001-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-0010-0001-0001-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
 EndGlobal

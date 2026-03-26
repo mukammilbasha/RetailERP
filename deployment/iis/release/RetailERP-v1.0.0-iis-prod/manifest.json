@@ -1,0 +1,57 @@
+{
+    "product":  "RetailERP",
+    "version":  "v1.0.0",
+    "environment":  "prod",
+    "builtAt":  "2026-03-24T08:49:20.4593026+05:30",
+    "builtBy":  "EzhaanMA",
+    "machine":  "DESKTOP-SIDACLR",
+    "services":  [
+                     {
+                         "name":  "Gateway",
+                         "port":  5000,
+                         "dir":  "gateway"
+                     },
+                     {
+                         "name":  "Auth",
+                         "port":  5001,
+                         "dir":  "auth"
+                     },
+                     {
+                         "name":  "Product",
+                         "port":  5002,
+                         "dir":  "product"
+                     },
+                     {
+                         "name":  "Inventory",
+                         "port":  5003,
+                         "dir":  "inventory"
+                     },
+                     {
+                         "name":  "Order",
+                         "port":  5004,
+                         "dir":  "order"
+                     },
+                     {
+                         "name":  "Production",
+                         "port":  5005,
+                         "dir":  "production"
+                     },
+                     {
+                         "name":  "Billing",
+                         "port":  5006,
+                         "dir":  "billing"
+                     },
+                     {
+                         "name":  "Reporting",
+                         "port":  5007,
+                         "dir":  "reporting"
+                     }
+                 ],
+    "frontendPort":  3003,
+    "instructions":  [
+                         "1. Copy this folder to the target Windows Server",
+                         "2. Run: powershell -ExecutionPolicy Bypass -File Install.ps1 -Environment prod",
+                         "3. Monitor: C:\\RetailERP\\Logs\\deploy-*.log",
+                         "4. Rollback: powershell -ExecutionPolicy Bypass -File Rollback.ps1 -Environment prod"
+                     ]
+}

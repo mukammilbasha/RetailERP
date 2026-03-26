@@ -1,0 +1,28 @@
+powershell -ExecutionPolicy Bypass -File deployment\iis\release-iis.ps1 -Environment prod -Version v1.0.0
+
+SYNTAX OK. Now rebuild the pack and transfer to server:
+
+On your build machine:
+
+
+# Repack only (skip rebuild — binaries already built)
+powershell -ExecutionPolicy Bypass -File deployment\iis\release-iis.ps1 -Environment prod -Version v1.0.0 -SkipBuild
+On the server — replace just the Install.ps1 (faster than re-transferring the full 68 MB ZIP):
+
+
+# Copy the updated Install.ps1 directly to the server share or paste via RDP
+# Then re-run:
+powershell -ExecutionPolicy Bypass -File .\Install.ps1 -Environment prod
+
+
+
+If the network still blocks downloads, you can pre-install the prerequisites manually and then skip them:
+
+
+powershell -ExecutionPolicy Bypass -File .\Install.ps1 -Environment prod -SkipPrereqs
+
+C:\RetailERP-pack
+
+powershell -ExecutionPolicy Bypass -File .\Install.ps1 -Environment prod -SkipPrereqs
+
+powershell -ExecutionPolicy Bypass -File .\Install.ps1 -Environment prod -SkipPrereqs -SkipBackup
