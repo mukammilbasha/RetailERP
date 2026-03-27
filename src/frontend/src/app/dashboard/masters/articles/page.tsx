@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Footprints, ShoppingBag } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Footprints, ShoppingBag, Upload, X } from "lucide-react";
 import api, { type ApiResponse } from "@/lib/api";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
@@ -16,6 +16,16 @@ import {
   hasErrors,
   type ValidationError,
 } from "@/lib/validators";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+
+/* ---------- Size type config ---------- */
+const SIZE_TYPES = ["None", "European", "UK/India", "US"];
+const SIZE_TYPE_RANGES: Record<string, number[]> = {
+  "European": Array.from({ length: 16 }, (_, i) => 35 + i),
+  "UK/India": Array.from({ length: 14 }, (_, i) => 1 + i),
+  "US":       Array.from({ length: 11 }, (_, i) => 5 + i),
+};
 
 /* ---------- types ---------- */
 interface Article {
@@ -99,6 +109,7 @@ const emptyForm = {
   mrp: 0,
   cbd: 0,
   isSizeBased: true,
+  sizeType: "European",
   isActive: true,
   color: "",
   style: "",
@@ -172,9 +183,17 @@ export default function ArticlesPage() {
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<ValidationError>({});
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
-  // Segment filter for DataTable
+  // Image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Segment filter and active filter for DataTable
   const [segmentFilter, setSegmentFilter] = useState("All");
+  const [activeFilter, setActiveFilter] = useState<"All" | "Active" | "Inactive">("All");
 
   // Dropdown data
   const [brands, setBrands] = useState<DropdownItem[]>([]);
@@ -193,6 +212,7 @@ export default function ArticlesPage() {
     endpoint: string;
     fieldName: string;
     bodyKey: string;
+    parentId?: string;
     refreshFn: () => void;
   } | null>(null);
 
@@ -211,6 +231,7 @@ export default function ArticlesPage() {
           pageNumber: page,
           pageSize: 25,
           segmentId: selectedSegmentId,
+          isActive: activeFilter === "Active" ? true : activeFilter === "Inactive" ? false : undefined,
         },
       });
       if (data.success) {
@@ -222,7 +243,7 @@ export default function ArticlesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, selectedSegmentId]);
+  }, [page, search, selectedSegmentId, activeFilter]);
 
   const fetchDropdown = async (
     endpoint: string,
@@ -259,7 +280,7 @@ export default function ArticlesPage() {
     fetchDropdown("/api/categories", setCategories, "categoryId", "categoryName");
   const loadSubCategories = () =>
     fetchDropdown("/api/subcategories", setSubCategories, "subCategoryId", "subCategoryName", "categoryId");
-  const loadSeasons = () => fetchDropdown("/api/seasons", setSeasons, "seasonId", "seasonName");
+  const loadSeasons = () => fetchDropdown("/api/seasons", setSeasons, "seasonId", "seasonCode");
   const loadGroups = () => fetchDropdown("/api/groups", setGroups, "groupId", "groupName");
 
   useEffect(() => {
@@ -305,10 +326,25 @@ export default function ArticlesPage() {
     else setForm((f) => ({ ...f, uom: "NOS" }));
   }, [isFootwear, isLeatherGoods]);
 
+  /* ---- Image file handler ---- */
+  const handleImageFile = (file: File) => {
+    if (file.size > 2 * 1024 * 1024) { showToast("error", "Image Too Large", "Image must be under 2MB."); return; }
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setImagePreview(result);
+      setField("imageUrl", result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   /* ---- CRUD actions ---- */
   const openAdd = () => {
     setEditingArticle(null);
     setForm(emptyForm);
+    setImageFile(null);
+    setImagePreview("");
     setErrors({});
     setModalOpen(true);
   };
@@ -316,6 +352,8 @@ export default function ArticlesPage() {
   const openEdit = (article: Article) => {
     setEditingArticle(article);
     setErrors({});
+    setImageFile(null);
+    setImagePreview(article.imageUrl || "");
     setForm({
       articleCode: article.articleCode || "",
       articleName: article.articleName || "",
@@ -334,6 +372,7 @@ export default function ArticlesPage() {
       mrp: article.mrp || 0,
       cbd: article.cbd || 0,
       isSizeBased: article.isSizeBased ?? true,
+      sizeType: article.isSizeBased === false ? "None" : "European",
       isActive: article.isActive ?? true,
       color: article.color || "",
       style: article.style || "",
@@ -384,36 +423,56 @@ export default function ArticlesPage() {
     }
 
     try {
+      const payload = { ...form, isSizeBased: form.sizeType !== "None" };
       if (editingArticle) {
-        await api.put(`/api/articles/${editingArticle.articleId}`, form);
+        await api.put(`/api/articles/${editingArticle.articleId}`, payload);
       } else {
-        await api.post("/api/articles", form);
+        await api.post("/api/articles", payload);
       }
+      showToast("success", editingArticle ? "Article Updated" : "Article Created", editingArticle ? "Article has been updated." : "Article has been added.");
       setModalOpen(false);
       fetchArticles();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to save article");
+      showToast("error", "Failed to Save", err.response?.data?.message || "An error occurred.");
     }
   };
 
   const handleDelete = async (article: Article) => {
-    if (!confirm(`Delete article "${article.articleName}"?`)) return;
+    const confirmed = await confirm({
+      title: "Delete Article",
+      message: `Are you sure you want to delete "${article.articleName}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/articles/${article.articleId}`);
+      showToast("success", "Deleted", `"${article.articleName}" has been removed.`);
       fetchArticles();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete article");
+      showToast("error", "Failed to Delete", err.response?.data?.message || "An error occurred.");
     }
   };
 
   const handleQuickAdd = async (name: string) => {
     if (!quickAdd) return;
     try {
-      await api.post(quickAdd.endpoint, { [quickAdd.bodyKey]: name, isActive: true });
+      let body: Record<string, any> = { [quickAdd.bodyKey]: name, isActive: true };
+      // Seasons require startDate and endDate
+      if (quickAdd.endpoint === "/api/seasons") {
+        const now = new Date();
+        body.startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        body.endDate = new Date(now.getFullYear(), now.getMonth() + 6, 0).toISOString();
+      }
+      // Sub-items need parentId
+      if (quickAdd.parentId) {
+        body.parentId = quickAdd.parentId;
+      }
+      await api.post(quickAdd.endpoint, body);
       quickAdd.refreshFn();
       setQuickAdd(null);
     } catch (err: any) {
-      alert(err.response?.data?.message || `Failed to add ${quickAdd.title}`);
+      showToast("error", "Failed to Save", err.response?.data?.message || `Failed to add ${quickAdd.title}.`);
     }
   };
 
@@ -498,21 +557,42 @@ export default function ArticlesPage() {
   /* ---- render ---- */
   return (
     <>
-      {/* Segment Filter Tabs */}
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
-        {["All", ...segments.map((s) => s.name)].map((seg) => (
-          <button
-            key={seg}
-            onClick={() => setSegmentFilter(seg)}
-            className={`px-4 py-2 text-sm rounded-lg whitespace-nowrap transition-colors ${
-              segmentFilter === seg
-                ? "bg-primary text-primary-foreground"
-                : "border hover:bg-muted"
-            }`}
-          >
-            {seg}
-          </button>
-        ))}
+      {/* Filter Bar: Segment + Active/Inactive */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {/* Segment Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto">
+          {["All", ...segments.map((s) => s.name)].map((seg) => (
+            <button
+              key={seg}
+              onClick={() => setSegmentFilter(seg)}
+              className={`px-4 py-2 text-sm rounded-lg whitespace-nowrap transition-colors ${
+                segmentFilter === seg
+                  ? "bg-primary text-primary-foreground"
+                  : "border hover:bg-muted"
+              }`}
+            >
+              {seg}
+            </button>
+          ))}
+        </div>
+        {/* Divider */}
+        <div className="h-6 w-px bg-border mx-1" />
+        {/* Active/Inactive filter */}
+        <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1">
+          {(["All", "Active", "Inactive"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => { setActiveFilter(f); setPage(1); }}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                activeFilter === f
+                  ? "bg-background shadow text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
       </div>
 
       <DataTable
@@ -528,8 +608,9 @@ export default function ArticlesPage() {
         onAdd={openAdd}
         onEdit={openEdit}
         onDelete={handleDelete}
-        onImport={() => alert("Import feature coming soon")}
-        onExport={() => alert("Export feature coming soon")}
+        onRefresh={fetchArticles}
+        onImport={() => showToast("info", "Import", "Import feature coming soon.")}
+        onExport={() => showToast("info", "Export", "Export feature coming soon.")}
         addLabel="Add Article"
         loading={loading}
         keyExtractor={(a) => a.articleId}
@@ -592,13 +673,26 @@ export default function ArticlesPage() {
             </div>
             <div className="sm:col-span-2 lg:col-span-1">
               <label className="block text-sm font-medium mb-1.5">Image</label>
-              <div className="border-2 border-dashed rounded-lg p-4 text-center text-sm text-muted-foreground cursor-pointer hover:border-primary/40 transition-colors">
-                {form.imageUrl ? (
-                  <span className="text-xs text-primary truncate block">{form.imageUrl}</span>
-                ) : (
-                  "Click to upload"
-                )}
-              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); }} />
+              {imagePreview ? (
+                <div className="relative border rounded-lg overflow-hidden h-24">
+                  <img src={imagePreview} alt="preview" className="w-full h-full object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => { setImageFile(null); setImagePreview(""); setField("imageUrl", ""); }}
+                    className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600"
+                  ><X size={12} /></button>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed rounded-lg p-4 text-center text-sm text-muted-foreground cursor-pointer hover:border-primary/40 transition-colors flex flex-col items-center gap-1"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={16} />
+                  <span className="text-xs">Click to upload image</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -635,7 +729,7 @@ export default function ArticlesPage() {
                       title: "Season",
                       endpoint: "/api/seasons",
                       fieldName: "seasonId",
-                      bodyKey: "name",
+                      bodyKey: "seasonCode",
                       refreshFn: loadSeasons,
                     })
                   }
@@ -784,6 +878,7 @@ export default function ArticlesPage() {
                         endpoint: "/api/subsegments",
                         fieldName: "subSegmentId",
                         bodyKey: "name",
+                        parentId: form.segmentId || undefined,
                         refreshFn: loadSubSegments,
                       })
                     }
@@ -896,6 +991,7 @@ export default function ArticlesPage() {
                         endpoint: "/api/subcategories",
                         fieldName: "subCategoryId",
                         bodyKey: "name",
+                        parentId: form.categoryId || undefined,
                         refreshFn: loadSubCategories,
                       })
                     }
@@ -930,21 +1026,23 @@ export default function ArticlesPage() {
                   className={inputCls}
                 />
               </div>
-              <div className="flex items-center gap-3 pb-1">
-                <button
-                  type="button"
-                  onClick={() => setField("isSizeBased", !form.isSizeBased)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    form.isSizeBased ? "bg-primary" : "bg-gray-300"
-                  }`}
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Size Type</label>
+                <select
+                  value={form.sizeType}
+                  onChange={(e) => {
+                    const st = e.target.value;
+                    setField("sizeType", st);
+                    setField("isSizeBased", st !== "None");
+                    // Reset size run defaults when type changes
+                    if (st === "European") { setField("sizeRunFrom", 36); setField("sizeRunTo", 46); }
+                    else if (st === "UK/India") { setField("sizeRunFrom", 3); setField("sizeRunTo", 12); }
+                    else if (st === "US") { setField("sizeRunFrom", 5); setField("sizeRunTo", 14); }
+                  }}
+                  className={inputCls}
                 >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      form.isSizeBased ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-                <span className="text-sm">Size Based</span>
+                  {SIZE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
               </div>
               <div className="flex items-center gap-3 pb-1">
                 <button
@@ -1033,41 +1131,43 @@ export default function ArticlesPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1.5">Lining Leather</label>
-                    <input
-                      type="text"
-                      value={form.liningLeather}
-                      onChange={(e) => setField("liningLeather", e.target.value)}
-                      className={inputCls}
-                    />
+                {form.sizeType !== "None" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5">Lining Leather</label>
+                      <input
+                        type="text"
+                        value={form.liningLeather}
+                        onChange={(e) => setField("liningLeather", e.target.value)}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5">Size Run From ({form.sizeType})</label>
+                      <select
+                        value={form.sizeRunFrom}
+                        onChange={(e) => setField("sizeRunFrom", +e.target.value)}
+                        className={inputCls}
+                      >
+                        {(SIZE_TYPE_RANGES[form.sizeType] || SIZE_TYPE_RANGES["European"]).map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-1">
+                      <label className="block text-sm font-medium mb-1.5">Size Run To ({form.sizeType})</label>
+                      <select
+                        value={form.sizeRunTo}
+                        onChange={(e) => setField("sizeRunTo", +e.target.value)}
+                        className={inputCls}
+                      >
+                        {(SIZE_TYPE_RANGES[form.sizeType] || SIZE_TYPE_RANGES["European"]).map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1.5">Size Run From (Euro)</label>
-                    <select
-                      value={form.sizeRunFrom}
-                      onChange={(e) => setField("sizeRunFrom", +e.target.value)}
-                      className={inputCls}
-                    >
-                      {Array.from({ length: 16 }, (_, i) => 35 + i).map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2 lg:col-span-1">
-                    <label className="block text-sm font-medium mb-1.5">Size Run To (Euro)</label>
-                    <select
-                      value={form.sizeRunTo}
-                      onChange={(e) => setField("sizeRunTo", +e.target.value)}
-                      className={inputCls}
-                    >
-                      {Array.from({ length: 16 }, (_, i) => 35 + i).map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                )}
               </>
             )}
 

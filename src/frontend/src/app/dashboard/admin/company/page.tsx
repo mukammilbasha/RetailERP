@@ -351,9 +351,22 @@ export default function CompanyMasterPage() {
       formData.append("Declaration",        settings.declaration);
       formData.append("AuthorisedSignatory",settings.authorisedSignatoryName);
 
-      await api.put("/api/auth/tenant/settings", formData, {
+      const { data: saveResult } = await api.put("/api/auth/tenant/settings", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+
+      // Update logoUrl from API response, then cache branding for login page
+      const updatedLogoUrl = saveResult?.data?.logoUrl || settings.logoUrl || null;
+      if (saveResult?.data?.logoUrl) {
+        setSettings((prev) => ({ ...prev, logoUrl: saveResult.data.logoUrl }));
+      }
+      try {
+        localStorage.setItem("retailerp_branding", JSON.stringify({
+          companyName: settings.companyName,
+          subtitle: settings.companySubtitle,
+          logoUrl: updatedLogoUrl,
+        }));
+      } catch {}
 
       setSaved(true);
       setLogoFile(null);

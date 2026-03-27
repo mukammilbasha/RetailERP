@@ -254,8 +254,73 @@ export default function StockLedgerPage() {
       });
 
       if (data.success) {
-        const items = data.data?.items || data.data || [];
-        setLedgerData(items);
+        const rows: any[] = data.data?.items || data.data || [];
+        // API returns per-size rows; aggregate into per-article rows
+        const articleMap = new Map<string, ArticleLedgerRow>();
+        for (const r of rows) {
+          const key = r.articleId;
+          const sizeRow: SizeLedgerRow = {
+            size: r.euroSize,
+            openingQty: r.openingQty ?? 0,
+            openingValue: r.openingValue ?? 0,
+            receiveQty: r.receivedQty ?? 0,
+            receiveValue: r.receivedValue ?? 0,
+            issueQty: r.issuedQty ?? 0,
+            issueValue: r.issuedValue ?? 0,
+            returnQty: r.returnQty ?? 0,
+            returnValue: r.returnValue ?? 0,
+            handloanInQty: r.handloanInQty ?? 0,
+            handloanInValue: r.handloanInValue ?? 0,
+            handloanOutQty: r.handloanOutQty ?? 0,
+            handloanOutValue: r.handloanOutValue ?? 0,
+            jobworkInQty: r.jobworkInQty ?? 0,
+            jobworkInValue: r.jobworkInValue ?? 0,
+            jobworkOutQty: r.jobworkOutQty ?? 0,
+            jobworkOutValue: r.jobworkOutValue ?? 0,
+            closingQty: r.closingQty ?? 0,
+            closingValue: r.closingValue ?? 0,
+          };
+          if (!articleMap.has(key)) {
+            articleMap.set(key, {
+              articleId: r.articleId,
+              articleCode: r.articleCode ?? "",
+              articleName: r.articleName ?? "",
+              categoryName: r.categoryName ?? r.color ?? "",
+              openingQty: 0, openingValue: 0,
+              receiveQty: 0, receiveValue: 0,
+              issueQty: 0, issueValue: 0,
+              returnQty: 0, returnValue: 0,
+              handloanInQty: 0, handloanInValue: 0,
+              handloanOutQty: 0, handloanOutValue: 0,
+              jobworkInQty: 0, jobworkInValue: 0,
+              jobworkOutQty: 0, jobworkOutValue: 0,
+              closingQty: 0, closingValue: 0,
+              isFrozen: r.isFrozen ?? false,
+              sizes: [],
+            });
+          }
+          const art = articleMap.get(key)!;
+          art.openingQty += sizeRow.openingQty;
+          art.openingValue += sizeRow.openingValue;
+          art.receiveQty += sizeRow.receiveQty;
+          art.receiveValue += sizeRow.receiveValue;
+          art.issueQty += sizeRow.issueQty;
+          art.issueValue += sizeRow.issueValue;
+          art.returnQty += sizeRow.returnQty;
+          art.returnValue += sizeRow.returnValue;
+          art.handloanInQty += sizeRow.handloanInQty;
+          art.handloanInValue += sizeRow.handloanInValue;
+          art.handloanOutQty += sizeRow.handloanOutQty;
+          art.handloanOutValue += sizeRow.handloanOutValue;
+          art.jobworkInQty += sizeRow.jobworkInQty;
+          art.jobworkInValue += sizeRow.jobworkInValue;
+          art.jobworkOutQty += sizeRow.jobworkOutQty;
+          art.jobworkOutValue += sizeRow.jobworkOutValue;
+          art.closingQty += sizeRow.closingQty;
+          art.closingValue += sizeRow.closingValue;
+          art.sizes!.push(sizeRow);
+        }
+        setLedgerData(Array.from(articleMap.values()));
       }
     } catch {
       // API not available -- try fetching articles for names, then generate sample

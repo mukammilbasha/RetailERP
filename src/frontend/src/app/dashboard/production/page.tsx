@@ -16,6 +16,8 @@ import {
   Image as ImageIcon,
   Plus,
 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /* ================================================================
    TYPES
@@ -265,12 +267,14 @@ export default function ProductionPage() {
 
   /* ---- UI state ---- */
   const [saving, setSaving] = useState(false);
+  const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirm();
 
-  /* ---- Fetch production orders: GET /api/production ---- */
+  /* ---- Fetch production orders: GET /api/productionorders ---- */
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get<ApiResponse<any>>("/api/production", {
+      const { data } = await api.get<ApiResponse<any>>("/api/productionorders", {
         params: {
           searchTerm: search || undefined,
           pageNumber: page,
@@ -380,7 +384,7 @@ export default function ProductionPage() {
   };
 
   /**
-   * Build the payload matching the backend POST /api/production contract:
+   * Build the payload matching the backend POST /api/productionorders contract:
    * { articleId, color, last, upperLeather, liningLeather, sole, orderType,
    *   upperCuttingDies, materialCuttingDies, socksInsoleCuttingDies,
    *   sizeQuantities: [{ euroSize, quantity }] }
@@ -409,14 +413,14 @@ export default function ProductionPage() {
     formSizes,
   ]);
 
-  /* ---- CRUD: Save as Draft -- POST /api/production ---- */
+  /* ---- CRUD: Save as Draft -- POST /api/productionorders ---- */
   const handleSaveDraft = async () => {
     if (!formArticleId) {
-      alert("Please select an article.");
+      showToast("error", "Validation Error", "Please select an article.");
       return;
     }
     if (totalQty <= 0) {
-      alert("Please enter size-wise quantities.");
+      showToast("error", "Validation Error", "Please enter size-wise quantities.");
       return;
     }
     setSaving(true);
@@ -424,31 +428,31 @@ export default function ProductionPage() {
       const body = buildPayload();
       if (editingOrder) {
         await api.put(
-          `/api/production/${editingOrder.productionOrderId}`,
+          `/api/productionorders/${editingOrder.productionOrderId}`,
           body
         );
+        showToast("success", "Production Order Updated", "The production order draft has been updated.");
       } else {
-        await api.post("/api/production", body);
+        await api.post("/api/productionorders", body);
+        showToast("success", "Production Order Created", "A new production order draft has been created.");
       }
       setModalOpen(false);
       fetchOrders();
     } catch (err: any) {
-      alert(
-        err.response?.data?.message || "Failed to save production order"
-      );
+      showToast("error", "Failed to Save", err.response?.data?.message || "An error occurred.");
     } finally {
       setSaving(false);
     }
   };
 
-  /* ---- CRUD: Save then Approve -- POST then PUT /api/production/{id}/approve ---- */
+  /* ---- CRUD: Save then Approve -- POST then PUT /api/productionorders/{id}/approve ---- */
   const handleApprove = async () => {
     if (!formArticleId) {
-      alert("Please select an article.");
+      showToast("error", "Validation Error", "Please select an article.");
       return;
     }
     if (totalQty <= 0) {
-      alert("Please enter size-wise quantities.");
+      showToast("error", "Validation Error", "Please enter size-wise quantities.");
       return;
     }
     setSaving(true);
@@ -457,10 +461,10 @@ export default function ProductionPage() {
       let orderId = editingOrder?.productionOrderId;
 
       if (editingOrder) {
-        await api.put(`/api/production/${orderId}`, body);
+        await api.put(`/api/productionorders/${orderId}`, body);
       } else {
         const { data } = await api.post<ApiResponse<any>>(
-          "/api/production",
+          "/api/productionorders",
           body
         );
         if (data.success && data.data) {
@@ -475,17 +479,14 @@ export default function ProductionPage() {
 
       // Now approve via dedicated endpoint
       if (orderId) {
-        await api.put(`/api/production/${orderId}/approve`);
+        await api.put(`/api/productionorders/${orderId}/approve`);
       }
 
+      showToast("success", "Production Order Approved", "The production order has been saved and approved.");
       setModalOpen(false);
       fetchOrders();
     } catch (err: any) {
-      alert(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to approve production order"
-      );
+      showToast("error", "Failed to Approve", err.response?.data?.message || err.message || "An error occurred.");
     } finally {
       setSaving(false);
     }
@@ -493,16 +494,21 @@ export default function ProductionPage() {
 
   /* ---- CRUD: Delete ---- */
   const handleDelete = async (order: ProductionOrder) => {
-    if (!confirm(`Delete production order "${order.orderNo}"?`)) return;
+    const confirmed = await confirmDialog({
+      title: "Delete Production Order",
+      message: `Are you sure you want to delete "${order.orderNo}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.delete(
-        `/api/production/${order.productionOrderId}`
+        `/api/productionorders/${order.productionOrderId}`
       );
+      showToast("success", "Deleted", `"${order.orderNo}" has been removed.`);
       fetchOrders();
     } catch (err: any) {
-      alert(
-        err.response?.data?.message || "Failed to delete production order"
-      );
+      showToast("error", "Failed to Delete", err.response?.data?.message || "An error occurred.");
     }
   };
 
@@ -510,33 +516,36 @@ export default function ProductionPage() {
   const handleApproveFromList = async (order: ProductionOrder) => {
     try {
       await api.put(
-        `/api/production/${order.productionOrderId}/approve`
+        `/api/productionorders/${order.productionOrderId}/approve`
       );
+      showToast("success", "Order Approved", `"${order.orderNo}" has been approved.`);
       fetchOrders();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to approve order");
+      showToast("error", "Failed to Approve", err.response?.data?.message || "An error occurred.");
     }
   };
 
   const handleStartFromList = async (order: ProductionOrder) => {
     try {
       await api.put(
-        `/api/production/${order.productionOrderId}/start`
+        `/api/productionorders/${order.productionOrderId}/start`
       );
+      showToast("success", "Production Started", `"${order.orderNo}" is now in production.`);
       fetchOrders();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to start order");
+      showToast("error", "Failed to Start", err.response?.data?.message || "An error occurred.");
     }
   };
 
   const handleCompleteFromList = async (order: ProductionOrder) => {
     try {
       await api.put(
-        `/api/production/${order.productionOrderId}/complete`
+        `/api/productionorders/${order.productionOrderId}/complete`
       );
+      showToast("success", "Production Completed", `"${order.orderNo}" has been marked as completed.`);
       fetchOrders();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to complete order");
+      showToast("error", "Failed to Complete", err.response?.data?.message || "An error occurred.");
     }
   };
 
@@ -653,8 +662,8 @@ export default function ProductionPage() {
         onAdd={openAdd}
         onEdit={openEdit}
         onDelete={handleDelete}
-        onImport={() => alert("Import feature coming soon")}
-        onExport={() => alert("Export feature coming soon")}
+        onImport={() => showToast("info", "Coming Soon", "Import feature is under development.")}
+        onExport={() => showToast("info", "Coming Soon", "Export feature is under development.")}
         addLabel="New Production Order"
         loading={loading}
         keyExtractor={(o) => o.productionOrderId}

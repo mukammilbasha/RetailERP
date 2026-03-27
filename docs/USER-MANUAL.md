@@ -2,23 +2,23 @@
 
 > Complete guide for end users of the EL CURIO RetailERP platform -- a retail distribution and ERP system for footwear, bags, belts, and leather goods.
 
-**Version:** 2.2
-**Last Updated:** 2026-03-23
+**Version:** 3.0
+**Last Updated:** 2026-03-27
 **Platform:** Web Application (Desktop & Mobile Browsers)
 
 ---
 
 ## Table of Contents
 
-1. [Getting Started](#1-getting-started)
-2. [Master Data Entry](#2-master-data-entry)
-3. [Customer Management](#3-customer-management)
-4. [Inventory Management](#4-inventory-management)
-5. [Order Management](#5-order-management)
-6. [Billing](#6-billing)
-7. [Reports](#7-reports)
-8. [Administration](#8-administration)
-9. [Common Operations](#9-common-operations)
+1. [Getting Started](#1-getting-started) -- Login, Dashboard, Navigation
+2. [Master Data Entry](#2-master-data-entry) -- Brands, Genders, Seasons, Segments, Categories, Groups, Sizes, Articles, SKUs
+3. [Customer Management](#3-customer-management) -- Clients, Stores
+4. [Inventory Management](#4-inventory-management) -- Stock Overview, GRN, Dispatch, Returns, Adjustment, Transactions, Stock Freeze
+5. [Order Management](#5-order-management) -- Customer Orders, Production Orders, Sales Channels
+6. [Billing](#6-billing) -- Tax Invoice & Packing, Print Formats, Delivery Notes, Warehouse Management
+7. [Reports](#7-reports) -- Sales, Inventory, Production, GST, Stock Valuation, Invoice, Packing
+8. [Administration](#8-administration) -- Users, Roles & Permissions, Company Master, License, Audit Log
+9. [Common Operations](#9-common-operations) -- Search, Filter, Export, Pagination, Keyboard Shortcuts, Themes
 10. [Frequently Asked Questions](#10-frequently-asked-questions)
 11. [Documentation Portal](#11-documentation-portal)
 
@@ -1246,6 +1246,55 @@ Invoices and packing lists can be printed in standard GST-compliant format. The 
    - Carton Number, Article, Size, Quantity per carton
 5. The system calculates **Total Cartons** and **Total Pairs**.
 6. Click **Save**.
+
+### 6.3 Delivery Notes
+
+**Path:** Dashboard > Billing > Delivery
+
+Auto-generated delivery notes are created from issued invoices that have packing lists. The delivery notes track shipment details and carton-wise packing.
+
+**Delivery Notes Table Columns:**
+
+| Column | Description |
+|--------|-------------|
+| Delivery No | Auto-generated delivery note number |
+| Delivery Date | Date the delivery was created |
+| Invoice No | Reference to the originating tax invoice |
+| Client | Buyer name |
+| Store | Destination store |
+| Total Cartons | Number of carton boxes |
+| Total Pairs | Total pairs shipped |
+| Transport Mode | Road, Air, Rail, or Sea |
+| Vehicle No | Transport vehicle registration |
+| Status | Current delivery status |
+
+Click the **View** button on any delivery note to see carton-wise details showing which articles and sizes are packed in each carton.
+
+---
+
+### 6.4 Warehouse Management
+
+**Path:** Dashboard > Warehouse
+
+Manage distribution warehouses and stores used across inventory, GRN, dispatch, and order operations.
+
+**How to Add a Warehouse**
+
+1. Navigate to **Dashboard > Warehouse**.
+2. Click **"+ Add Warehouse"**.
+3. Fill in:
+   - **Warehouse Code** (e.g., WH-MH, WH-DL)
+   - **Warehouse Name** (e.g., Mumbai Central Warehouse)
+   - **Address**, **City**, **State**, **Pin Code**
+4. Click **Save**.
+
+**Table Columns:** Code, Warehouse Name, Address, City, State, Status, Actions (Edit/Delete)
+
+Warehouses are used throughout the system for:
+- **Stock Receipt (GRN):** Receiving goods into a specific warehouse
+- **Dispatch:** Shipping goods from a warehouse
+- **Stock Overview:** Filtering stock by warehouse
+- **Orders:** Associating orders with fulfillment warehouses
 
 ---
 

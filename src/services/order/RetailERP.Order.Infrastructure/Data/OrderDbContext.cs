@@ -9,6 +9,7 @@ public class OrderDbContext : DbContext
 
     public DbSet<Client> Clients => Set<Client>();
     public DbSet<Store> Stores => Set<Store>();
+    public DbSet<CustomerMasterEntry> CustomerMasterEntries => Set<CustomerMasterEntry>();
     public DbSet<CustomerOrder> Orders => Set<CustomerOrder>();
     public DbSet<OrderLine> OrderLines => Set<OrderLine>();
     public DbSet<OrderSizeRun> OrderSizeRuns => Set<OrderSizeRun>();
@@ -35,6 +36,16 @@ public class OrderDbContext : DbContext
             entity.HasOne(e => e.Client).WithMany(c => c.Stores).HasForeignKey(e => e.ClientId);
             entity.HasIndex(e => new { e.TenantId, e.StoreCode }).IsUnique();
             entity.Property(e => e.MarginPercent).HasColumnType("decimal(18,2)");
+        });
+
+        // -- CustomerMasterEntry -> sales.CustomerMasterEntries --
+        modelBuilder.Entity<CustomerMasterEntry>(entity =>
+        {
+            entity.ToTable("CustomerMasterEntries", "sales");
+            entity.HasKey(e => e.CustomerEntryId);
+            entity.Property(e => e.MarginPercent).HasColumnType("decimal(5,2)");
+            entity.HasOne(e => e.Store).WithMany().HasForeignKey(e => e.StoreId);
+            entity.HasOne(e => e.Client).WithMany().HasForeignKey(e => e.ClientId);
         });
 
         // -- CustomerOrder -> sales.CustomerOrders --

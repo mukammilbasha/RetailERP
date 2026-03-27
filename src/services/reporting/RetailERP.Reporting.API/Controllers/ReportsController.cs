@@ -26,22 +26,24 @@ public class ReportsController : ControllerBase
 
     [HttpGet("sales")]
     public async Task<ActionResult<ApiResponse<List<SalesReportRow>>>> SalesReport(
-        [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate,
+        [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate,
         [FromQuery] Guid? clientId, CancellationToken ct)
     {
+        var from = fromDate ?? DateTime.UtcNow.AddDays(-30);
+        var to = toDate ?? DateTime.UtcNow;
         using var conn = CreateConnection();
         var sql = @"
             SELECT
                 o.OrderId,
-                o.OrderNumber,
+                o.OrderNo AS OrderNumber,
                 o.OrderDate,
                 c.ClientName,
                 c.ClientCode,
                 o.Status,
-                o.SubTotal,
-                o.DiscountAmount,
-                o.TaxableAmount,
-                o.TotalTax,
+                0 AS SubTotal,
+                0 AS DiscountAmount,
+                0 AS TaxableAmount,
+                0 AS TotalTax,
                 o.TotalAmount,
                 COUNT(ol.OrderLineId) AS TotalLines,
                 SUM(ol.Quantity) AS TotalQuantity
@@ -52,15 +54,15 @@ public class ReportsController : ControllerBase
               AND o.OrderDate >= @FromDate
               AND o.OrderDate <= @ToDate
               AND (@ClientId IS NULL OR o.ClientId = @ClientId)
-            GROUP BY o.OrderId, o.OrderNumber, o.OrderDate, c.ClientName, c.ClientCode,
-                     o.Status, o.SubTotal, o.DiscountAmount, o.TaxableAmount, o.TotalTax, o.TotalAmount
+            GROUP BY o.OrderId, o.OrderNo, o.OrderDate, c.ClientName, c.ClientCode,
+                     o.Status, o.TotalAmount
             ORDER BY o.OrderDate DESC";
 
         var result = (await conn.QueryAsync<SalesReportRow>(sql, new
         {
             TenantId,
-            FromDate = fromDate,
-            ToDate = toDate,
+            FromDate = from,
+            ToDate = to,
             ClientId = clientId
         })).ToList();
 
@@ -76,23 +78,24 @@ public class ReportsController : ControllerBase
             SELECT
                 sl.StockLedgerId,
                 sl.ArticleId,
-                sl.SKU,
-                sl.Size,
-                sl.Color,
+                ISNULL(a.ArticleCode, '') AS SKU,
+                CAST(sl.EuroSize AS NVARCHAR(20)) AS Size,
+                ISNULL(a.Color, '') AS Color,
                 w.WarehouseName,
                 w.WarehouseCode,
-                sl.QuantityOnHand,
-                sl.QuantityReserved,
-                (sl.QuantityOnHand - sl.QuantityReserved) AS QuantityAvailable,
-                sl.ReorderLevel,
-                sl.ReorderQuantity,
-                CASE WHEN sl.QuantityOnHand <= sl.ReorderLevel THEN 1 ELSE 0 END AS IsLowStock
+                sl.ClosingStock AS QuantityOnHand,
+                0 AS QuantityReserved,
+                sl.ClosingStock AS QuantityAvailable,
+                0 AS ReorderLevel,
+                0 AS ReorderQuantity,
+                0 AS IsLowStock
             FROM inventory.StockLedger sl
             INNER JOIN warehouse.Warehouses w ON sl.WarehouseId = w.WarehouseId AND w.TenantId = @TenantId
+            LEFT JOIN product.Articles a ON sl.ArticleId = a.ArticleId
             WHERE sl.TenantId = @TenantId
               AND (@WarehouseId IS NULL OR sl.WarehouseId = @WarehouseId)
-              AND (@LowStockOnly = 0 OR sl.QuantityOnHand <= sl.ReorderLevel)
-            ORDER BY sl.SKU, w.WarehouseName";
+              AND (@LowStockOnly = 0 OR sl.ClosingStock <= 0)
+            ORDER BY a.ArticleCode, w.WarehouseName";
 
         var result = (await conn.QueryAsync<InventoryReportRow>(sql, new
         {
@@ -106,40 +109,43 @@ public class ReportsController : ControllerBase
 
     [HttpGet("production")]
     public async Task<ActionResult<ApiResponse<List<ProductionReportRow>>>> ProductionReport(
-        [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate,
+        [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate,
         [FromQuery] string? status, CancellationToken ct = default)
     {
+        var from = fromDate ?? DateTime.UtcNow.AddDays(-30);
+        var to = toDate ?? DateTime.UtcNow;
         using var conn = CreateConnection();
         var sql = @"
             SELECT
                 po.ProductionOrderId,
-                po.ProductionNumber,
-                po.SKU,
-                po.ArticleName,
+                po.OrderNo AS ProductionNumber,
+                ISNULL(a.ArticleCode, '') AS SKU,
+                a.ArticleName,
                 po.Status,
-                po.PlannedStartDate,
-                po.PlannedEndDate,
-                po.ActualStartDate,
-                po.ActualEndDate,
+                po.OrderDate AS PlannedStartDate,
+                po.OrderDate AS PlannedEndDate,
+                NULL AS ActualStartDate,
+                po.CompletedAt AS ActualEndDate,
                 po.TotalQuantity,
-                po.CompletedQuantity,
-                po.RejectedQuantity,
-                (po.TotalQuantity - po.CompletedQuantity - po.RejectedQuantity) AS PendingQuantity,
-                po.EstimatedCost,
-                po.ActualCost,
-                po.Season
+                0 AS CompletedQuantity,
+                0 AS RejectedQuantity,
+                po.TotalQuantity AS PendingQuantity,
+                0 AS EstimatedCost,
+                NULL AS ActualCost,
+                NULL AS Season
             FROM production.ProductionOrders po
+            LEFT JOIN product.Articles a ON po.ArticleId = a.ArticleId
             WHERE po.TenantId = @TenantId
-              AND po.PlannedStartDate >= @FromDate
-              AND po.PlannedEndDate <= @ToDate
+              AND po.OrderDate >= @FromDate
+              AND po.OrderDate <= @ToDate
               AND (@Status IS NULL OR po.Status = @Status)
-            ORDER BY po.PlannedStartDate DESC";
+            ORDER BY po.OrderDate DESC";
 
         var result = (await conn.QueryAsync<ProductionReportRow>(sql, new
         {
             TenantId,
-            FromDate = fromDate,
-            ToDate = toDate,
+            FromDate = from,
+            ToDate = to,
             Status = status
         })).ToList();
 
@@ -148,16 +154,18 @@ public class ReportsController : ControllerBase
 
     [HttpGet("gst")]
     public async Task<ActionResult<ApiResponse<List<GSTReportRow>>>> GSTReport(
-        [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate, CancellationToken ct = default)
+        [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate, CancellationToken ct = default)
     {
+        var from = fromDate ?? DateTime.UtcNow.AddDays(-30);
+        var to = toDate ?? DateTime.UtcNow;
         using var conn = CreateConnection();
         var sql = @"
             SELECT
                 i.InvoiceId,
-                i.InvoiceNumber,
+                i.InvoiceNo AS InvoiceNumber,
                 i.InvoiceDate,
-                i.ClientName,
-                i.ClientGSTIN,
+                i.BillToName AS ClientName,
+                i.BillToGSTIN AS ClientGSTIN,
                 i.IsInterState,
                 i.SellerState,
                 i.BuyerState,
@@ -178,8 +186,8 @@ public class ReportsController : ControllerBase
         var result = (await conn.QueryAsync<GSTReportRow>(sql, new
         {
             TenantId,
-            FromDate = fromDate,
-            ToDate = toDate
+            FromDate = from,
+            ToDate = to
         })).ToList();
 
         return Ok(ApiResponse<List<GSTReportRow>>.Ok(result));
@@ -187,18 +195,20 @@ public class ReportsController : ControllerBase
 
     [HttpGet("client-orders")]
     public async Task<ActionResult<ApiResponse<List<ClientOrderReportRow>>>> ClientOrderReport(
-        [FromQuery] DateTime fromDate, [FromQuery] DateTime toDate,
+        [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate,
         [FromQuery] Guid? clientId, CancellationToken ct = default)
     {
+        var from = fromDate ?? DateTime.UtcNow.AddDays(-30);
+        var to = toDate ?? DateTime.UtcNow;
         using var conn = CreateConnection();
         var sql = @"
             SELECT
                 c.ClientId,
                 c.ClientCode,
                 c.ClientName,
-                c.City,
-                c.State,
-                c.ClientType,
+                NULL AS City,
+                c.StateCode AS State,
+                NULL AS ClientType,
                 COUNT(DISTINCT o.OrderId) AS TotalOrders,
                 SUM(CASE WHEN o.Status = 'Confirmed' THEN 1 ELSE 0 END) AS ConfirmedOrders,
                 SUM(CASE WHEN o.Status = 'Delivered' THEN 1 ELSE 0 END) AS DeliveredOrders,
@@ -214,14 +224,14 @@ public class ReportsController : ControllerBase
             WHERE c.TenantId = @TenantId
               AND c.IsActive = 1
               AND (@ClientId IS NULL OR c.ClientId = @ClientId)
-            GROUP BY c.ClientId, c.ClientCode, c.ClientName, c.City, c.State, c.ClientType
+            GROUP BY c.ClientId, c.ClientCode, c.ClientName, c.StateCode
             ORDER BY SUM(o.TotalAmount) DESC";
 
         var result = (await conn.QueryAsync<ClientOrderReportRow>(sql, new
         {
             TenantId,
-            FromDate = fromDate,
-            ToDate = toDate,
+            FromDate = from,
+            ToDate = to,
             ClientId = clientId
         })).ToList();
 

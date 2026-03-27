@@ -18,7 +18,12 @@ import {
   Save,
   CheckCircle,
   Eye,
+  FileText,
+  Truck,
+  Edit2,
 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /* ================================================================
    TYPES
@@ -36,6 +41,7 @@ interface Order {
   warehouseId: string;
   warehouseName: string;
   articlesCount: number;
+  totalLines: number;
   totalQuantity: number;
   totalAmount: number;
   status: "Draft" | "Confirmed" | "Cancelled" | "Dispatched";
@@ -537,6 +543,24 @@ export default function OrdersPage() {
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [stockLoading, setStockLoading] = useState(false);
+  const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirm();
+
+  /* ---- Invoice modal state ---- */
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
+  const [invoiceOrderDetail, setInvoiceOrderDetail] = useState<any>(null);
+  const [invDate, setInvDate] = useState(new Date().toISOString().split("T")[0]);
+  const [invMarginPct, setInvMarginPct] = useState("0");
+  const [invPoNumber, setInvPoNumber] = useState("");
+  const [invPoDate, setInvPoDate] = useState("");
+  const [invIsInterState, setInvIsInterState] = useState(false);
+  const [invCartonBoxes, setInvCartonBoxes] = useState("1");
+  const [invLogistic, setInvLogistic] = useState("");
+  const [invTransportMode, setInvTransportMode] = useState("Road");
+  const [invVehicleNo, setInvVehicleNo] = useState("");
+  const [invNotes, setInvNotes] = useState("");
+  const [invCreating, setInvCreating] = useState(false);
 
   /* ================================================================
      DATA FETCHING
@@ -1004,11 +1028,11 @@ export default function OrdersPage() {
   /* ---- Save as Draft: POST /api/orders or PUT /api/orders/{id} ---- */
   const handleSaveDraft = async () => {
     if (!formClientId || !formStoreId) {
-      alert("Client and Store are required.");
+      showToast("error", "Validation Error", "Client and Store are required.");
       return;
     }
     if (articleEntries.length === 0) {
-      alert("Add at least one article with quantities.");
+      showToast("error", "Validation Error", "Add at least one article with quantities.");
       return;
     }
     setSaving(true);
@@ -1016,14 +1040,16 @@ export default function OrdersPage() {
       const body = buildPayload();
       if (editingOrder) {
         await api.put(`/api/orders/${editingOrder.orderId}`, body);
+        showToast("success", "Order Updated", "The order draft has been updated.");
       } else {
         await api.post("/api/orders", body);
+        showToast("success", "Order Created", "A new order draft has been created.");
       }
       setModalOpen(false);
       resetForm();
       fetchOrders();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to save order");
+      showToast("error", "Failed to Save", err.response?.data?.message || "An error occurred.");
     } finally {
       setSaving(false);
     }
@@ -1032,21 +1058,19 @@ export default function OrdersPage() {
   /* ---- Confirm Order: save then PUT /api/orders/{id}/confirm ---- */
   const handleConfirmOrder = async () => {
     if (!formClientId || !formStoreId) {
-      alert("Client and Store are required.");
+      showToast("error", "Validation Error", "Client and Store are required.");
       return;
     }
     if (articleEntries.length === 0) {
-      alert("Add at least one article with quantities.");
+      showToast("error", "Validation Error", "Add at least one article with quantities.");
       return;
     }
     if (grandTotals.totalPairs <= 0) {
-      alert("Total quantity must be greater than zero.");
+      showToast("error", "Validation Error", "Total quantity must be greater than zero.");
       return;
     }
     if (hasStockValidationErrors) {
-      alert(
-        "Cannot confirm: allocation exceeds available stock for some sizes."
-      );
+      showToast("error", "Validation Error", "Cannot confirm: allocation exceeds available stock for some sizes.");
       return;
     }
     setConfirming(true);
@@ -1070,15 +1094,12 @@ export default function OrdersPage() {
       // Now confirm via PUT /api/orders/{id}/confirm
       await api.put(`/api/orders/${orderId}/confirm`);
 
+      showToast("success", "Order Confirmed", "The order has been confirmed and stock has been deducted.");
       setModalOpen(false);
       resetForm();
       fetchOrders();
     } catch (err: any) {
-      alert(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to confirm order"
-      );
+      showToast("error", "Failed to Confirm", err.response?.data?.message || err.message || "An error occurred.");
     } finally {
       setConfirming(false);
     }
@@ -1087,38 +1108,156 @@ export default function OrdersPage() {
   /* ---- Delete draft: DELETE /api/orders/{id} ---- */
   const handleDelete = async (order: Order) => {
     if (order.status !== "Draft") {
-      alert("Only draft orders can be deleted.");
+      showToast("error", "Cannot Delete", "Only draft orders can be deleted.");
       return;
     }
-    if (!confirm(`Delete order "${order.orderNo}"?`)) return;
+    const confirmed = await confirmDialog({
+      title: "Delete Order",
+      message: `Are you sure you want to delete "${order.orderNo}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/orders/${order.orderId}`);
+      showToast("success", "Deleted", `"${order.orderNo}" has been removed.`);
       fetchOrders();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete order");
+      showToast("error", "Failed to Delete", err.response?.data?.message || "An error occurred.");
     }
   };
 
   /* ---- Confirm from list: PUT /api/orders/{id}/confirm ---- */
   const handleConfirmFromList = async (order: Order) => {
-    if (!confirm(`Confirm order "${order.orderNo}"? Stock will be deducted.`))
-      return;
+    const confirmed = await confirmDialog({
+      title: "Confirm Order",
+      message: `Confirm order "${order.orderNo}"? Stock will be deducted.`,
+      confirmLabel: "Confirm",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.put(`/api/orders/${order.orderId}/confirm`);
+      showToast("success", "Order Confirmed", `"${order.orderNo}" has been confirmed.`);
       fetchOrders();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to confirm order");
+      showToast("error", "Failed to Confirm", err.response?.data?.message || "An error occurred.");
     }
   };
 
   /* ---- Cancel from list: PUT /api/orders/{id}/cancel ---- */
   const handleCancelFromList = async (order: Order) => {
-    if (!confirm(`Cancel order "${order.orderNo}"?`)) return;
+    const confirmed = await confirmDialog({
+      title: "Cancel Order",
+      message: `Are you sure you want to cancel order "${order.orderNo}"? This action cannot be undone.`,
+      confirmLabel: "Cancel Order",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.put(`/api/orders/${order.orderId}/cancel`);
+      showToast("success", "Order Cancelled", `"${order.orderNo}" has been cancelled.`);
       fetchOrders();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to cancel order");
+      showToast("error", "Failed to Cancel", err.response?.data?.message || "An error occurred.");
+    }
+  };
+
+  /* ---- Dispatch from list: PUT /api/orders/{id}/dispatch ---- */
+  const handleDispatchFromList = async (order: Order) => {
+    const ok = await confirmDialog({
+      title: "Dispatch Order",
+      message: `Dispatch order "${order.orderNo}"? This will mark the order as dispatched.`,
+      confirmLabel: "Dispatch",
+      variant: "danger",
+    });
+    if (!ok) return;
+    try {
+      await api.put(`/api/orders/${order.orderId}/dispatch`);
+      showToast("success", "Order Dispatched", `"${order.orderNo}" has been dispatched.`);
+      fetchOrders();
+    } catch (err: any) {
+      showToast("error", "Failed to Dispatch", err.response?.data?.message || "An error occurred.");
+    }
+  };
+
+  /* ---- Open invoice generation modal ---- */
+  const openInvoiceModal = async (order: Order) => {
+    setInvoiceOrder(order);
+    setInvDate(new Date().toISOString().split("T")[0]);
+    setInvMarginPct("0");
+    setInvPoNumber("");
+    setInvPoDate("");
+    setInvIsInterState(false);
+    setInvCartonBoxes("1");
+    setInvLogistic("");
+    setInvTransportMode("Road");
+    setInvVehicleNo("");
+    setInvNotes("");
+    setInvoiceOrderDetail(null);
+    // Fetch full order detail to get articles/sizes
+    try {
+      const { data } = await api.get<ApiResponse<any>>(`/api/orders/${order.orderId}`);
+      if (data.success) setInvoiceOrderDetail(data.data);
+    } catch { /* use basic info */ }
+    setInvoiceModalOpen(true);
+  };
+
+  /* ---- Create invoice from order ---- */
+  const handleCreateInvoice = async () => {
+    if (!invoiceOrder) return;
+    setInvCreating(true);
+    try {
+      const detail = invoiceOrderDetail;
+      const marginPct = parseFloat(invMarginPct) || 0;
+      const articles = detail?.articles || detail?.lines || [];
+      const lines = articles.map((a: any) => {
+        const sizeQties: Record<string, number> = {};
+        const sizes = a.sizeQuantities || a.sizes || a.sizeRuns || [];
+        sizes.forEach((s: any) => {
+          const euroSize = s.euroSize || s.size;
+          if (euroSize && (s.quantity || s.qty || s.orderQty)) {
+            sizeQties[String(euroSize)] = s.quantity || s.qty || s.orderQty || 0;
+          }
+        });
+        return {
+          articleId: a.articleId,
+          sku: a.articleCode || a.sku || "",
+          articleName: a.articleName || a.description || "",
+          description: a.articleName || "",
+          hsnCode: a.hsnCode || "",
+          color: a.color || a.colour || "",
+          mrp: a.mrp || 0,
+          quantity: a.quantity || a.totalQuantity || 0,
+          marginPercent: marginPct,
+          sizeBreakdownJson: JSON.stringify(sizeQties),
+          uom: "Pairs",
+        };
+      });
+      const payload = {
+        orderId: invoiceOrder.orderId,
+        orderNumber: invoiceOrder.orderNo,
+        clientId: invoiceOrder.clientId,
+        storeId: invoiceOrder.storeId,
+        invoiceDate: invDate,
+        isInterState: invIsInterState,
+        poNumber: invPoNumber || undefined,
+        poDate: invPoDate || undefined,
+        cartonBoxes: parseInt(invCartonBoxes) || 1,
+        logistic: invLogistic || undefined,
+        transportMode: invTransportMode || undefined,
+        vehicleNo: invVehicleNo || undefined,
+        notes: invNotes || undefined,
+        lines,
+      };
+      await api.post("/api/invoices", payload);
+      showToast("success", "Invoice Created", `Invoice generated for order ${invoiceOrder.orderNo}.`);
+      setInvoiceModalOpen(false);
+      fetchOrders();
+    } catch (err: any) {
+      showToast("error", "Failed to Create Invoice", err.response?.data?.message || "An error occurred.");
+    } finally {
+      setInvCreating(false);
     }
   };
 
@@ -1179,7 +1318,7 @@ export default function OrdersPage() {
       className: "text-center",
       render: (o) => (
         <span className="inline-flex items-center justify-center bg-primary/10 text-primary font-semibold text-xs rounded-full w-7 h-7">
-          {o.articlesCount || 0}
+          {o.articlesCount || o.totalLines || 0}
         </span>
       ),
     },
@@ -1225,20 +1364,21 @@ export default function OrdersPage() {
           {o.status === "Draft" && (
             <>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleConfirmFromList(o);
-                }}
+                onClick={(e) => { e.stopPropagation(); openEdit(o); }}
+                className="p-1.5 rounded hover:bg-muted transition-colors"
+                title="Edit"
+              >
+                <Edit2 size={14} className="text-primary" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleConfirmFromList(o); }}
                 className="p-1.5 rounded hover:bg-green-50 transition-colors"
                 title="Confirm"
               >
                 <Check size={14} className="text-green-600" />
               </button>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(o);
-                }}
+                onClick={(e) => { e.stopPropagation(); handleDelete(o); }}
                 className="p-1.5 rounded hover:bg-destructive/10 transition-colors"
                 title="Delete"
               >
@@ -1247,15 +1387,37 @@ export default function OrdersPage() {
             </>
           )}
           {o.status === "Confirmed" && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDispatchFromList(o); }}
+                className="p-1.5 rounded hover:bg-blue-50 transition-colors"
+                title="Dispatch"
+              >
+                <Truck size={14} className="text-blue-600" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); openInvoiceModal(o); }}
+                className="p-1.5 rounded hover:bg-emerald-50 transition-colors"
+                title="Generate Invoice"
+              >
+                <FileText size={14} className="text-emerald-600" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleCancelFromList(o); }}
+                className="p-1.5 rounded hover:bg-red-50 transition-colors"
+                title="Cancel"
+              >
+                <X size={14} className="text-red-600" />
+              </button>
+            </>
+          )}
+          {o.status === "Dispatched" && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCancelFromList(o);
-              }}
-              className="p-1.5 rounded hover:bg-red-50 transition-colors"
-              title="Cancel"
+              onClick={(e) => { e.stopPropagation(); openInvoiceModal(o); }}
+              className="p-1.5 rounded hover:bg-emerald-50 transition-colors"
+              title="Generate Invoice"
             >
-              <X size={14} className="text-red-600" />
+              <FileText size={14} className="text-emerald-600" />
             </button>
           )}
         </div>
@@ -1318,8 +1480,8 @@ export default function OrdersPage() {
           else openView(o);
         }}
         onDelete={handleDelete}
-        onImport={() => alert("Import feature coming soon")}
-        onExport={() => alert("Export feature coming soon")}
+        onImport={() => showToast("info", "Coming Soon", "Import feature is under development.")}
+        onExport={() => showToast("info", "Coming Soon", "Export feature is under development.")}
         addLabel="New Order"
         loading={loading}
         keyExtractor={(o) => o.orderId}
@@ -1593,6 +1755,92 @@ export default function OrdersPage() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* ========== GENERATE INVOICE MODAL ========== */}
+      <Modal
+        isOpen={invoiceModalOpen}
+        onClose={() => setInvoiceModalOpen(false)}
+        title="Generate Invoice"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+            <FileText size={16} />
+            <span>Creating invoice for order <strong>{invoiceOrder?.orderNo}</strong> — {invoiceOrder?.clientName} / {invoiceOrder?.storeName}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Invoice Date *</label>
+              <input type="date" value={invDate} onChange={(e) => setInvDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Margin % (all lines)</label>
+              <input type="number" min="0" max="100" step="0.01" value={invMarginPct} onChange={(e) => setInvMarginPct(e.target.value)} placeholder="0" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">PO Number</label>
+              <input type="text" value={invPoNumber} onChange={(e) => setInvPoNumber(e.target.value)} placeholder="Purchase Order No" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">PO Date</label>
+              <input type="date" value={invPoDate} onChange={(e) => setInvPoDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Carton Boxes</label>
+              <input type="number" min="1" value={invCartonBoxes} onChange={(e) => setInvCartonBoxes(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Transport Mode</label>
+              <select value={invTransportMode} onChange={(e) => setInvTransportMode(e.target.value)} className={inputCls}>
+                <option>Road</option>
+                <option>Rail</option>
+                <option>Air</option>
+                <option>Ship</option>
+                <option>Courier</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Logistic Partner</label>
+              <input type="text" value={invLogistic} onChange={(e) => setInvLogistic(e.target.value)} placeholder="Courier / Transporter name" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Vehicle / LR No</label>
+              <input type="text" value={invVehicleNo} onChange={(e) => setInvVehicleNo(e.target.value)} placeholder="Vehicle / LR Number" className={inputCls} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-3 border rounded-lg">
+            <input
+              type="checkbox"
+              id="invInterState"
+              checked={invIsInterState}
+              onChange={(e) => setInvIsInterState(e.target.checked)}
+              className="w-4 h-4 accent-primary"
+            />
+            <label htmlFor="invInterState" className="text-sm font-medium cursor-pointer">
+              Inter-State Supply (IGST applies instead of CGST+SGST)
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Notes</label>
+            <input type="text" value={invNotes} onChange={(e) => setInvNotes(e.target.value)} placeholder="Additional notes..." className={inputCls} />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t">
+            <button onClick={() => setInvoiceModalOpen(false)} className="px-4 py-2 text-sm border rounded-lg hover:bg-muted transition-colors">Cancel</button>
+            <button
+              onClick={handleCreateInvoice}
+              disabled={invCreating || !invDate}
+              className="flex items-center gap-1.5 px-6 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold disabled:opacity-50 transition-colors"
+            >
+              <FileText size={14} />
+              {invCreating ? "Creating..." : "Create Invoice"}
+            </button>
           </div>
         </div>
       </Modal>

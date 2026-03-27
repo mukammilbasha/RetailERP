@@ -30,6 +30,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (data.success) {
       localStorage.setItem("accessToken", data.data.accessToken);
       localStorage.setItem("refreshToken", data.data.refreshToken);
+      // Cache tenant name as branding fallback (only if no richer branding already stored)
+      try {
+        const existing = JSON.parse(localStorage.getItem("retailerp_branding") || "{}");
+        if (!existing.companyName && data.data.user?.tenantName) {
+          localStorage.setItem("retailerp_branding", JSON.stringify({
+            companyName: data.data.user.tenantName,
+            subtitle: "",
+            logoUrl: null,
+          }));
+        }
+      } catch {}
       set({ user: data.data.user, isAuthenticated: true, isLoading: false });
     } else {
       throw new Error(data.message || "Login failed");

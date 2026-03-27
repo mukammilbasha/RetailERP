@@ -18,7 +18,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<List<MasterDataDto>> GetBrandsAsync(Guid tenantId, string? search = null, CancellationToken ct = default)
     {
-        var query = _context.Set<Brand>().Where(b => b.TenantId == tenantId);
+        var query = _context.Set<Brand>().Where(b => b.TenantId == tenantId && b.IsActive);
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(b => b.Name.ToLower().Contains(search.ToLower()));
 
@@ -37,7 +37,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<MasterDataDto> CreateBrandAsync(Guid tenantId, CreateMasterDataRequest request, Guid createdBy, CancellationToken ct = default)
     {
-        var exists = await _context.Set<Brand>().AnyAsync(b => b.TenantId == tenantId && b.Name == request.Name, ct);
+        var exists = await _context.Set<Brand>().AnyAsync(b => b.TenantId == tenantId && b.Name == request.Name && b.IsActive, ct);
         if (exists) throw new ArgumentException($"Brand '{request.Name}' already exists");
 
         var brand = new Brand
@@ -82,7 +82,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<List<MasterDataDto>> GetGendersAsync(Guid tenantId, string? search = null, CancellationToken ct = default)
     {
-        var query = _context.Set<Gender>().Where(g => g.TenantId == tenantId);
+        var query = _context.Set<Gender>().Where(g => g.TenantId == tenantId && g.IsActive);
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(g => g.Name.ToLower().Contains(search.ToLower()));
 
@@ -101,7 +101,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<MasterDataDto> CreateGenderAsync(Guid tenantId, CreateMasterDataRequest request, Guid createdBy, CancellationToken ct = default)
     {
-        var exists = await _context.Set<Gender>().AnyAsync(g => g.TenantId == tenantId && g.Name == request.Name, ct);
+        var exists = await _context.Set<Gender>().AnyAsync(g => g.TenantId == tenantId && g.Name == request.Name && g.IsActive, ct);
         if (exists) throw new ArgumentException($"Gender '{request.Name}' already exists");
 
         var gender = new Gender
@@ -146,7 +146,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<List<SeasonDto>> GetSeasonsAsync(Guid tenantId, string? search = null, CancellationToken ct = default)
     {
-        var query = _context.Set<Season>().Where(s => s.TenantId == tenantId);
+        var query = _context.Set<Season>().Where(s => s.TenantId == tenantId && s.IsActive);
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(s => s.SeasonCode.ToLower().Contains(search.ToLower()));
 
@@ -165,7 +165,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<SeasonDto> CreateSeasonAsync(Guid tenantId, CreateSeasonRequest request, Guid createdBy, CancellationToken ct = default)
     {
-        var exists = await _context.Set<Season>().AnyAsync(s => s.TenantId == tenantId && s.SeasonCode == request.SeasonCode, ct);
+        var exists = await _context.Set<Season>().AnyAsync(s => s.TenantId == tenantId && s.SeasonCode == request.SeasonCode && s.IsActive, ct);
         if (exists) throw new ArgumentException($"Season '{request.SeasonCode}' already exists");
 
         var season = new Season
@@ -212,7 +212,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<List<MasterDataDto>> GetSegmentsAsync(Guid tenantId, string? search = null, CancellationToken ct = default)
     {
-        var query = _context.Set<Segment>().Where(s => s.TenantId == tenantId);
+        var query = _context.Set<Segment>().Where(s => s.TenantId == tenantId && s.IsActive);
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(s => s.Name.ToLower().Contains(search.ToLower()));
 
@@ -231,7 +231,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<MasterDataDto> CreateSegmentAsync(Guid tenantId, CreateMasterDataRequest request, Guid createdBy, CancellationToken ct = default)
     {
-        var exists = await _context.Set<Segment>().AnyAsync(s => s.TenantId == tenantId && s.Name == request.Name, ct);
+        var exists = await _context.Set<Segment>().AnyAsync(s => s.TenantId == tenantId && s.Name == request.Name && s.IsActive, ct);
         if (exists) throw new ArgumentException($"Segment '{request.Name}' already exists");
 
         var segment = new Segment
@@ -278,7 +278,7 @@ public class MasterDataService : IMasterDataService
     {
         var query = _context.Set<SubSegment>()
             .Include(ss => ss.Segment)
-            .Where(ss => ss.TenantId == tenantId);
+            .Where(ss => ss.TenantId == tenantId && ss.IsActive);
 
         if (segmentId.HasValue)
             query = query.Where(ss => ss.SegmentId == segmentId.Value);
@@ -306,7 +306,7 @@ public class MasterDataService : IMasterDataService
         if (!parentExists) throw new KeyNotFoundException($"Segment with ID {request.ParentId} not found");
 
         var exists = await _context.Set<SubSegment>().AnyAsync(
-            ss => ss.TenantId == tenantId && ss.SegmentId == request.ParentId && ss.Name == request.Name, ct);
+            ss => ss.TenantId == tenantId && ss.SegmentId == request.ParentId && ss.Name == request.Name && ss.IsActive, ct);
         if (exists) throw new ArgumentException($"SubSegment '{request.Name}' already exists under this segment");
 
         var subSegment = new SubSegment
@@ -358,7 +358,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<List<MasterDataDto>> GetCategoriesAsync(Guid tenantId, string? search = null, CancellationToken ct = default)
     {
-        var query = _context.Set<Category>().Where(c => c.TenantId == tenantId);
+        var query = _context.Set<Category>().Where(c => c.TenantId == tenantId && c.IsActive);
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(c => c.Name.ToLower().Contains(search.ToLower()));
 
@@ -377,7 +377,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<MasterDataDto> CreateCategoryAsync(Guid tenantId, CreateMasterDataRequest request, Guid createdBy, CancellationToken ct = default)
     {
-        var exists = await _context.Set<Category>().AnyAsync(c => c.TenantId == tenantId && c.Name == request.Name, ct);
+        var exists = await _context.Set<Category>().AnyAsync(c => c.TenantId == tenantId && c.Name == request.Name && c.IsActive, ct);
         if (exists) throw new ArgumentException($"Category '{request.Name}' already exists");
 
         var category = new Category
@@ -424,7 +424,7 @@ public class MasterDataService : IMasterDataService
     {
         var query = _context.Set<SubCategory>()
             .Include(sc => sc.Category)
-            .Where(sc => sc.TenantId == tenantId);
+            .Where(sc => sc.TenantId == tenantId && sc.IsActive);
 
         if (categoryId.HasValue)
             query = query.Where(sc => sc.CategoryId == categoryId.Value);
@@ -452,7 +452,7 @@ public class MasterDataService : IMasterDataService
         if (!parentExists) throw new KeyNotFoundException($"Category with ID {request.ParentId} not found");
 
         var exists = await _context.Set<SubCategory>().AnyAsync(
-            sc => sc.TenantId == tenantId && sc.CategoryId == request.ParentId && sc.Name == request.Name, ct);
+            sc => sc.TenantId == tenantId && sc.CategoryId == request.ParentId && sc.Name == request.Name && sc.IsActive, ct);
         if (exists) throw new ArgumentException($"SubCategory '{request.Name}' already exists under this category");
 
         var subCategory = new SubCategory
@@ -504,7 +504,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<List<MasterDataDto>> GetGroupsAsync(Guid tenantId, string? search = null, CancellationToken ct = default)
     {
-        var query = _context.Set<Group>().Where(g => g.TenantId == tenantId);
+        var query = _context.Set<Group>().Where(g => g.TenantId == tenantId && g.IsActive);
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(g => g.Name.ToLower().Contains(search.ToLower()));
 
@@ -523,7 +523,7 @@ public class MasterDataService : IMasterDataService
 
     public async Task<MasterDataDto> CreateGroupAsync(Guid tenantId, CreateMasterDataRequest request, Guid createdBy, CancellationToken ct = default)
     {
-        var exists = await _context.Set<Group>().AnyAsync(g => g.TenantId == tenantId && g.Name == request.Name, ct);
+        var exists = await _context.Set<Group>().AnyAsync(g => g.TenantId == tenantId && g.Name == request.Name && g.IsActive, ct);
         if (exists) throw new ArgumentException($"Group '{request.Name}' already exists");
 
         var group = new Group

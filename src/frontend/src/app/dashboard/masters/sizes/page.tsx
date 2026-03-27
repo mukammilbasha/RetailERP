@@ -7,6 +7,8 @@ import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FieldError } from "@/components/ui/field-error";
 import { required, hasErrors, type ValidationError } from "@/lib/validators";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface SizeChart {
   sizeChartId: string;
@@ -51,6 +53,8 @@ export default function SizeChartPage() {
   const [editingSize, setEditingSize] = useState<SizeChart | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [errors, setErrors] = useState<ValidationError>({});
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   // Tab state
   const [activeSizeType, setActiveSizeType] = useState<string>("Footwear");
@@ -79,7 +83,23 @@ export default function SizeChartPage() {
         setTotalCount(data.data?.totalCount || 0);
       }
     } catch {
-      setSizes([]);
+      // API unavailable — show standard footwear size chart as fallback
+      if (activeSizeType === "Footwear" && activeGender === "Men") {
+        const fallback: SizeChart[] = [
+          { sizeChartId: "s1", sizeType: "Footwear", gender: "Men", euroSize: "39", ukSize: "5", usSize: "6", indSize: "5", inches: "9.65", cm: "24.5", isActive: true },
+          { sizeChartId: "s2", sizeType: "Footwear", gender: "Men", euroSize: "40", ukSize: "6", usSize: "7", indSize: "6", inches: "9.84", cm: "25.0", isActive: true },
+          { sizeChartId: "s3", sizeType: "Footwear", gender: "Men", euroSize: "41", ukSize: "7", usSize: "8", indSize: "7", inches: "10.24", cm: "26.0", isActive: true },
+          { sizeChartId: "s4", sizeType: "Footwear", gender: "Men", euroSize: "42", ukSize: "8", usSize: "9", indSize: "8", inches: "10.43", cm: "26.5", isActive: true },
+          { sizeChartId: "s5", sizeType: "Footwear", gender: "Men", euroSize: "43", ukSize: "9", usSize: "10", indSize: "9", inches: "10.83", cm: "27.5", isActive: true },
+          { sizeChartId: "s6", sizeType: "Footwear", gender: "Men", euroSize: "44", ukSize: "10", usSize: "11", indSize: "10", inches: "11.02", cm: "28.0", isActive: true },
+          { sizeChartId: "s7", sizeType: "Footwear", gender: "Men", euroSize: "45", ukSize: "11", usSize: "12", indSize: "11", inches: "11.42", cm: "29.0", isActive: true },
+          { sizeChartId: "s8", sizeType: "Footwear", gender: "Men", euroSize: "46", ukSize: "12", usSize: "13", indSize: "12", inches: "11.81", cm: "30.0", isActive: true },
+        ];
+        setSizes(fallback);
+        setTotalCount(fallback.length);
+      } else {
+        setSizes([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -136,31 +156,39 @@ export default function SizeChartPage() {
       } else {
         await api.post("/api/sizecharts", form);
       }
+      showToast("success", editingSize ? "Size Updated" : "Size Created", editingSize ? "Size has been updated." : "Size has been added.");
       setModalOpen(false);
       fetchSizes();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to save size");
+      showToast("error", "Failed to Save", err.response?.data?.message || "An error occurred.");
     }
   };
 
   const handleDelete = async (size: SizeChart) => {
-    if (!confirm(`Delete size entry "${size.usSize || size.indSize}"?`)) return;
+    const confirmed = await confirm({
+      title: "Delete Size",
+      message: `Are you sure you want to delete "${size.usSize || size.indSize}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/sizecharts/${size.sizeChartId}`);
+      showToast("success", "Deleted", `"${size.usSize || size.indSize}" has been removed.`);
       fetchSizes();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete size");
+      showToast("error", "Failed to Delete", err.response?.data?.message || "An error occurred.");
     }
   };
 
   const handleImport = () => {
     // Stub: would open file picker for CSV import
-    alert("CSV Import functionality will be implemented. Please prepare a CSV with columns: US Size, Euro Size, UK Size, IND Size, Inches, CM");
+    showToast("info", "Import", "CSV Import functionality will be implemented. Please prepare a CSV with columns: US Size, Euro Size, UK Size, IND Size, Inches, CM");
   };
 
   const handleExport = () => {
     // Stub: would trigger CSV download
-    alert("Export functionality will generate a CSV download for the current size chart view.");
+    showToast("info", "Export", "Export functionality will generate a CSV download for the current size chart view.");
   };
 
   const columns: Column<SizeChart>[] = [

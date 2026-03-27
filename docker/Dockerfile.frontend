@@ -1,16 +1,23 @@
 # Multi-stage Dockerfile for Next.js frontend
+# Build arg: NEXT_PUBLIC_API_URL — set to the public gateway URL for the deployment target
+#   Local Docker :  http://localhost:5000  (default)
+#   Client server:  http://<SERVER_IP>:5000
+#   Production:     https://api.yourdomain.com
+ARG NEXT_PUBLIC_API_URL=http://localhost:5000
+
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY src/frontend/package.json src/frontend/package-lock.json* ./
 RUN npm ci
 
 FROM node:20-alpine AS builder
+ARG NEXT_PUBLIC_API_URL
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY src/frontend/ .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NEXT_PUBLIC_API_URL=http://localhost:5000
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 RUN npm run build
 

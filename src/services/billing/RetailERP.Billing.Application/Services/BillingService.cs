@@ -336,8 +336,8 @@ public class BillingService : IBillingService
     public async Task<InvoiceDto> UpdateInvoiceAsync(
         Guid tenantId, Guid invoiceId, UpdateInvoiceRequest request, CancellationToken ct = default)
     {
+        // Load invoice WITHOUT lines to avoid EF navigation fixup issues during update
         var invoice = await _context.Set<Invoice>()
-            .Include(i => i.Lines)
             .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, ct)
             ?? throw new KeyNotFoundException("Invoice not found");
 
@@ -346,6 +346,13 @@ public class BillingService : IBillingService
 
         if (request.Lines == null || request.Lines.Count == 0)
             throw new ArgumentException("Invoice must have at least one line item.");
+
+        // Load and delete existing lines separately (avoid EF navigation collection interference)
+        var existingLines = await _context.Set<InvoiceLine>()
+            .Where(l => l.InvoiceId == invoiceId)
+            .ToListAsync(ct);
+        _context.Set<InvoiceLine>().RemoveRange(existingLines);
+        await _context.SaveChangesAsync(ct); // commit deletions; entities become Detached
 
         // Update header fields
         invoice.InvoiceDate    = request.InvoiceDate ?? invoice.InvoiceDate;
@@ -365,10 +372,6 @@ public class BillingService : IBillingService
         invoice.Notes          = request.Notes;
         invoice.UpdatedAt      = DateTime.UtcNow;
 
-        // Replace lines
-        _context.Set<InvoiceLine>().RemoveRange(invoice.Lines);
-        invoice.Lines.Clear();
-
         decimal totalMarginAmount = 0, totalGSTPayableValue = 0, totalBillingExclGST = 0;
         decimal totalGSTReimbursementValue = 0, totalBillingInclGST = 0;
         decimal cgstTotal = 0, sgstTotal = 0, igstTotal = 0;
@@ -378,7 +381,8 @@ public class BillingService : IBillingService
         {
             var invoiceLine = CalculateInvoiceLine(line, request.IsInterState, lineNumber);
             invoiceLine.InvoiceId = invoice.Id;
-            invoice.Lines.Add(invoiceLine);
+            // Add directly via DbSet (not via invoice.Lines) to avoid nav fixup
+            _context.Set<InvoiceLine>().Add(invoiceLine);
 
             totalMarginAmount            += invoiceLine.MarginAmount * invoiceLine.Quantity;
             totalGSTPayableValue         += invoiceLine.GSTPayableValue * invoiceLine.Quantity;

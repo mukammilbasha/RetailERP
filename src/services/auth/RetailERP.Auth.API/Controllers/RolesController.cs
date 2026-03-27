@@ -50,6 +50,66 @@ public class RolesController : ControllerBase
         return Ok(ApiResponse<List<object>>.Ok(permissions.Cast<object>().ToList()));
     }
 
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> Create(
+        [FromBody] CreateRoleRequest request, CancellationToken ct)
+    {
+        var exists = await _context.Roles
+            .AnyAsync(r => r.TenantId == TenantId && r.RoleName == request.RoleName && r.IsActive, ct);
+        if (exists)
+            return BadRequest(ApiResponse<object>.Fail("A role with this name already exists"));
+
+        var role = new Role
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantId,
+            RoleName = request.RoleName,
+            Description = request.Description,
+            IsSystem = false,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Roles.Add(role);
+        await _context.SaveChangesAsync(ct);
+
+        return Ok(ApiResponse<object>.Ok(new { role.Id, role.RoleName, role.Description, role.IsSystem }));
+    }
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<object>>> Update(
+        Guid id, [FromBody] CreateRoleRequest request, CancellationToken ct)
+    {
+        var role = await _context.Roles
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == TenantId, ct);
+        if (role == null) return NotFound(ApiResponse<object>.Fail("Role not found"));
+        if (role.IsSystem) return BadRequest(ApiResponse<object>.Fail("Cannot modify system roles"));
+
+        role.RoleName = request.RoleName;
+        role.Description = request.Description;
+        role.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+
+        return Ok(ApiResponse<object>.Ok(new { role.Id, role.RoleName, role.Description, role.IsSystem }));
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ApiResponse<bool>>> Delete(Guid id, CancellationToken ct)
+    {
+        var role = await _context.Roles
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == TenantId, ct);
+        if (role == null) return NotFound(ApiResponse<object>.Fail("Role not found"));
+        if (role.IsSystem) return BadRequest(ApiResponse<bool>.Fail("Cannot delete system roles"));
+
+        role.IsActive = false;
+        role.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+
+        return Ok(ApiResponse<bool>.Ok(true, "Role deleted"));
+    }
+
     [HttpPut("{id:guid}/permissions")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<bool>>> UpdatePermissions(
@@ -105,3 +165,9 @@ public class PermissionUpdateRequest
 
 public record PermissionModuleUpdate(
     string Module, bool CanView, bool CanAdd, bool CanEdit, bool CanDelete);
+
+public class CreateRoleRequest
+{
+    public string RoleName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+}

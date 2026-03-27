@@ -91,24 +91,7 @@ public class StoresController : ControllerBase
     public async Task<ActionResult<ApiResponse<StoreDto>>> Create(
         [FromBody] CreateStoreWithClientRequest request, CancellationToken ct)
     {
-        var storeRequest = new CreateStoreRequest
-        {
-            StoreCode = request.StoreCode,
-            StoreName = request.StoreName,
-            Format = request.Format,
-            Organisation = request.Organisation,
-            City = request.City,
-            State = request.State,
-            Channel = request.Channel,
-            ModusOperandi = request.ModusOperandi,
-            MarginPercent = request.MarginPercent,
-            MarginType = request.MarginType,
-            ManagerName = request.ManagerName,
-            Email = request.Email,
-            GSTIN = request.GSTIN,
-            PAN = request.PAN
-        };
-        var result = await _clientService.CreateStoreAsync(TenantId, UserId, request.ClientId, storeRequest, ct);
+        var result = await _clientService.CreateStoreAsync(TenantId, UserId, request.ClientId, request, ct);
         return CreatedAtAction(nameof(GetById), new { id = result.StoreId }, ApiResponse<StoreDto>.Ok(result));
     }
 

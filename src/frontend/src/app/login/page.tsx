@@ -235,6 +235,11 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [branding, setBranding] = useState<{ companyName: string; subtitle: string; logoUrl: string | null }>({
+    companyName: "RetailERP",
+    subtitle: "Enterprise-grade platform for footwear, bags & belts distribution — inventory, billing, and analytics unified.",
+    logoUrl: null,
+  });
 
   const { login } = useAuthStore();
   const router = useRouter();
@@ -242,6 +247,18 @@ export default function LoginPage() {
   useEffect(() => {
     const saved = localStorage.getItem("rememberedEmail");
     if (saved) { setEmail(saved); setRememberMe(true); }
+    // Load cached company branding
+    try {
+      const stored = localStorage.getItem("retailerp_branding");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setBranding({
+          companyName: parsed.companyName || "RetailERP",
+          subtitle: parsed.subtitle || "Enterprise-grade platform for footwear, bags & belts distribution — inventory, billing, and analytics unified.",
+          logoUrl: parsed.logoUrl || null,
+        });
+      }
+    } catch {}
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -354,11 +371,10 @@ export default function LoginPage() {
           <div className="absolute bottom-12 left-0 right-0 text-center">
             <div className="erp-label inline-block">
               <h2 className="text-2xl font-bold text-white/90 tracking-tight">
-                EL CURIO <span className="text-white/40 font-normal">|</span>{" "}
-                <span style={{ color: "hsl(var(--primary))" }}>RetailERP</span>
+                <span style={{ color: "hsl(var(--primary))" }}>{branding.companyName}</span>
               </h2>
               <p className="mt-2 text-sm text-white/40 max-w-sm mx-auto">
-                Enterprise-grade platform for footwear, bags &amp; belts distribution — inventory, billing, and analytics unified.
+                {branding.subtitle}
               </p>
             </div>
           </div>
@@ -383,18 +399,26 @@ export default function LoginPage() {
             {/* Logo + Heading */}
             <div className="fade-in-1 text-center mb-8">
               <div className="flex justify-center mb-5">
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg"
-                  style={{ background: "hsl(var(--primary))" }}
-                >
-                  EC
-                </div>
+                {branding.logoUrl ? (
+                  <img
+                    src={branding.logoUrl}
+                    alt={branding.companyName}
+                    className="w-14 h-14 rounded-2xl object-contain shadow-lg border border-gray-100 dark:border-white/10 bg-white"
+                  />
+                ) : (
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg"
+                    style={{ background: "hsl(var(--primary))" }}
+                  >
+                    {branding.companyName.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
               </div>
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white tracking-tight">
                 Welcome back
               </h2>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Sign in to your RetailERP account
+                Sign in to <span className="font-medium">{branding.companyName}</span>
               </p>
             </div>
 

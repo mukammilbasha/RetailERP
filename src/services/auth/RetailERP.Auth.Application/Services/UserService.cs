@@ -25,7 +25,7 @@ public class UserService : IUserService
             .FirstOrDefaultAsync(t => t.TenantId == tenantId, ct)
             ?? throw new KeyNotFoundException("Tenant not found");
 
-        return new UserInfo(user.Id, user.TenantId, user.FullName, user.Email, user.Role.RoleName, tenant.TenantName);
+        return new UserInfo(user.Id, user.TenantId, user.FullName, user.Email, user.Role.RoleName, tenant.TenantName, user.IsActive, user.CreatedAt);
     }
 
     public async Task<List<UserInfo>> GetAllAsync(Guid tenantId, CancellationToken ct = default)
@@ -36,12 +36,12 @@ public class UserService : IUserService
 
         var users = await _context.Set<User>()
             .Include(u => u.Role)
-            .Where(u => u.TenantId == tenantId && u.IsActive)
+            .Where(u => u.TenantId == tenantId)
             .OrderBy(u => u.FullName)
             .ToListAsync(ct);
 
         return users.Select(u => new UserInfo(
-            u.Id, u.TenantId, u.FullName, u.Email, u.Role.RoleName, tenant.TenantName
+            u.Id, u.TenantId, u.FullName, u.Email, u.Role.RoleName, tenant.TenantName, u.IsActive, u.CreatedAt
         )).ToList();
     }
 
@@ -53,10 +53,10 @@ public class UserService : IUserService
         if (exists)
             throw new ArgumentException($"A user with email '{request.Email}' already exists");
 
-        // Validate role exists
+        // Validate role exists by name
         var role = await _context.Set<Role>()
-            .FirstOrDefaultAsync(r => r.Id == request.RoleId, ct)
-            ?? throw new KeyNotFoundException($"Role with ID {request.RoleId} not found");
+            .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.RoleName == request.RoleName && r.IsActive, ct)
+            ?? throw new KeyNotFoundException($"Role '{request.RoleName}' not found");
 
         var user = new User
         {
@@ -65,7 +65,7 @@ public class UserService : IUserService
             FullName = request.FullName,
             Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.TemporaryPassword),
-            RoleId = request.RoleId,
+            RoleId = role.Id,
             IsFirstLogin = true,
             IsActive = true,
             CreatedBy = createdBy,
@@ -79,7 +79,7 @@ public class UserService : IUserService
             .FirstOrDefaultAsync(t => t.TenantId == tenantId, ct)
             ?? throw new KeyNotFoundException("Tenant not found");
 
-        return new UserInfo(user.Id, user.TenantId, user.FullName, user.Email, role.RoleName, tenant.TenantName);
+        return new UserInfo(user.Id, user.TenantId, user.FullName, user.Email, role.RoleName, tenant.TenantName, user.IsActive, user.CreatedAt);
     }
 
     public async Task<UserInfo> UpdateAsync(Guid userId, Guid tenantId, UpdateUserRequest request, CancellationToken ct = default)
@@ -98,25 +98,24 @@ public class UserService : IUserService
                 throw new ArgumentException($"A user with email '{request.Email}' already exists");
         }
 
+        // Look up role by name
+        var role = await _context.Set<Role>()
+            .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.RoleName == request.RoleName && r.IsActive, ct)
+            ?? throw new KeyNotFoundException($"Role '{request.RoleName}' not found");
+
         user.FullName = request.FullName;
         user.Email = request.Email;
-        user.RoleId = request.RoleId;
+        user.RoleId = role.Id;
         user.IsActive = request.IsActive;
         user.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(ct);
 
-        // Reload role if changed
-        if (user.RoleId != request.RoleId)
-        {
-            await _context.Entry(user).Reference(u => u.Role).LoadAsync(ct);
-        }
-
         var tenant = await _context.Set<Tenant>()
             .FirstOrDefaultAsync(t => t.TenantId == tenantId, ct)
             ?? throw new KeyNotFoundException("Tenant not found");
 
-        return new UserInfo(user.Id, user.TenantId, user.FullName, user.Email, user.Role.RoleName, tenant.TenantName);
+        return new UserInfo(user.Id, user.TenantId, user.FullName, user.Email, role.RoleName, tenant.TenantName, user.IsActive, user.CreatedAt);
     }
 
     public async Task DeleteAsync(Guid userId, Guid tenantId, CancellationToken ct = default)

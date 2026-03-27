@@ -8,6 +8,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate } from "@/lib/utils";
 import { FieldError } from "@/components/ui/field-error";
 import { required, pattern, minLength, PATTERNS, hasErrors, type ValidationError } from "@/lib/validators";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface User {
   userId: string;
@@ -53,6 +55,8 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [errors, setErrors] = useState<ValidationError>({});
+  const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirm();
 
   const updateForm = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -82,7 +86,11 @@ export default function UsersPage() {
       const { data } = await api.get<ApiResponse<any>>("/api/roles");
       if (data.success) {
         const items = data.data?.items || data.data || [];
-        setRoles(Array.isArray(items) ? items : []);
+        // API returns { id, roleName } — normalize to { roleId, roleName }
+        const normalized = Array.isArray(items)
+          ? items.map((r: any) => ({ roleId: r.id || r.roleId, roleName: r.roleName }))
+          : [];
+        setRoles(normalized);
       }
     } catch {
       setRoles([]);
@@ -130,32 +138,39 @@ export default function UsersPage() {
         await api.put(`/api/users/${editingUser.userId}`, {
           fullName: form.fullName,
           email: form.email,
-          role: form.role,
+          roleName: form.role,
           isActive: form.isActive,
         });
       } else {
         await api.post("/api/users", {
           fullName: form.fullName,
           email: form.email,
-          role: form.role,
-          password: form.password,
-          isActive: form.isActive,
+          roleName: form.role,
+          temporaryPassword: form.password,
         });
       }
       setModalOpen(false);
+      showToast("success", editingUser ? "User Updated" : "User Created", editingUser ? `"${form.fullName}" has been updated.` : `"${form.fullName}" has been created.`);
       fetchUsers();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to save user");
+      showToast("error", "Failed to Save", err.response?.data?.message || "An error occurred.");
     }
   };
 
   const handleDelete = async (user: User) => {
-    if (!confirm(`Delete user "${user.fullName}"?`)) return;
+    const confirmed = await confirmDialog({
+      title: "Delete User",
+      message: `Are you sure you want to delete "${user.fullName}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/users/${user.userId}`);
+      showToast("success", "Deleted", `"${user.fullName}" has been removed.`);
       fetchUsers();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete user");
+      showToast("error", "Failed to Delete", err.response?.data?.message || "An error occurred.");
     }
   };
 
@@ -233,6 +248,7 @@ export default function UsersPage() {
         onAdd={openAdd}
         onEdit={openEdit}
         onDelete={handleDelete}
+        onRefresh={fetchUsers}
         onExport={() => {}}
         addLabel="Add User"
         loading={loading}

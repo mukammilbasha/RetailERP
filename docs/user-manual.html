@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RetailERP User Manual v2.2</title>
+<title>RetailERP User Manual v3.0</title>
 <style>
 /* ===== PAGE SETUP ===== */
 @page {
@@ -579,7 +579,7 @@ pre {
     </div>
     <div class="cover-meta-item">
       <span class="cover-meta-label">Date</span>
-      <span class="cover-meta-value">2026-03-23</span>
+      <span class="cover-meta-value">2026-03-27</span>
     </div>
     <div class="cover-meta-item">
       <span class="cover-meta-label">Modules</span>
@@ -2162,6 +2162,83 @@ pre {
   <div class="callout tip"><div class="callout-icon">&#128161;</div><div class="callout-body"><div class="callout-title">Tip: Packing Detail Invoice</div><div class="callout-text">The Invoices list page includes a "Packing Detail — Tax Invoice" tab showing the combined view of invoice and packing information. Use it to verify all invoiced items are accounted for in cartons before dispatching.</div></div></div>
 </div>
 
+<!-- ==================== CHAPTER 18B — DELIVERY NOTES ==================== -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-accent"></div>
+    <div class="chapter-number">Chapter 18B</div>
+    <div class="chapter-title">Delivery Notes</div>
+  </div>
+  <div class="module-intro">
+    <div class="module-intro-title">About Delivery Notes</div>
+    <p>Delivery Notes are auto-generated from issued invoices that have associated packing lists. They serve as shipment tracking documents, recording transport details, carton counts, and delivery status for each consignment dispatched to customers.</p>
+  </div>
+  <div class="nav-path">Dashboard <span>&rsaquo;</span> Billing <span>&rsaquo;</span> Delivery</div>
+
+  <h2 class="section-title">Delivery Note Table Columns</h2>
+  <table class="field-table">
+    <thead><tr><th>Column</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Delivery No</strong></td><td>Auto-generated delivery note number linked to the invoice</td></tr>
+      <tr><td><strong>Delivery Date</strong></td><td>Date the delivery was created (defaults to invoice date)</td></tr>
+      <tr><td><strong>Invoice No</strong></td><td>Reference to the originating tax invoice</td></tr>
+      <tr><td><strong>Client</strong></td><td>Buyer/client name</td></tr>
+      <tr><td><strong>Store</strong></td><td>Destination store for delivery</td></tr>
+      <tr><td><strong>Total Cartons</strong></td><td>Number of carton boxes in the shipment</td></tr>
+      <tr><td><strong>Total Pairs</strong></td><td>Total pairs of goods being shipped</td></tr>
+      <tr><td><strong>Transport Mode</strong></td><td>Road, Air, Rail, or Sea</td></tr>
+      <tr><td><strong>Vehicle No</strong></td><td>Transport vehicle registration number</td></tr>
+      <tr><td><strong>Status</strong></td><td>Current delivery status</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="section-title">Viewing Delivery Details</h2>
+  <ol>
+    <li><div class="step-body">Navigate to <strong>Dashboard &gt; Billing &gt; Delivery</strong>.</div></li>
+    <li><div class="step-body">The delivery notes table shows all shipments with search and export options.</div></li>
+    <li><div class="step-body">Click the <strong>View</strong> button on any delivery note to see carton-wise packing details.</div></li>
+    <li><div class="step-body">The detail view shows which articles and sizes are packed in each carton.</div></li>
+  </ol>
+</div>
+
+<!-- ==================== CHAPTER 18C — WAREHOUSE MANAGEMENT ==================== -->
+<div class="chapter">
+  <div class="chapter-header">
+    <div class="chapter-accent"></div>
+    <div class="chapter-number">Chapter 18C</div>
+    <div class="chapter-title">Warehouse Management</div>
+  </div>
+  <div class="module-intro">
+    <div class="module-intro-title">About Warehouse Management</div>
+    <p>The Warehouse module manages distribution warehouses and stores used across inventory, GRN, dispatch, and order fulfillment operations. Each warehouse has a unique code, location details, and active/inactive status.</p>
+  </div>
+  <div class="nav-path">Dashboard <span>&rsaquo;</span> Warehouse</div>
+
+  <h2 class="section-title">Warehouse Fields</h2>
+  <table class="field-table">
+    <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Warehouse Code</strong></td><td>Text (2-10 chars)</td><td>Yes</td><td>Short unique identifier (e.g., "WH-MH", "WH-DL")</td></tr>
+      <tr><td><strong>Warehouse Name</strong></td><td>Text (3+ chars)</td><td>Yes</td><td>Full name (e.g., "Mumbai Central Warehouse")</td></tr>
+      <tr><td><strong>Address</strong></td><td>Text</td><td>No</td><td>Street address of the warehouse</td></tr>
+      <tr><td><strong>City</strong></td><td>Text</td><td>Yes</td><td>City where the warehouse is located</td></tr>
+      <tr><td><strong>State</strong></td><td>Dropdown</td><td>No</td><td>Indian state (selected from all 36 states and union territories)</td></tr>
+      <tr><td><strong>Pin Code</strong></td><td>Text</td><td>No</td><td>Postal pin code</td></tr>
+      <tr><td><strong>Warehouse Type</strong></td><td>Text</td><td>No</td><td>Type classification (e.g., "Main", "Store", "Transit")</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="section-title">How to Add a Warehouse</h2>
+  <ol>
+    <li><div class="step-body">Navigate to <strong>Dashboard &gt; Warehouse</strong>.</div></li>
+    <li><div class="step-body">Click the <strong>"+ Add Warehouse"</strong> button.</div></li>
+    <li><div class="step-body">Fill in the Warehouse Code, Name, City, and optionally Address, State, and Pin Code.</div></li>
+    <li><div class="step-body">Click <strong>Save</strong> to create the warehouse.</div></li>
+  </ol>
+
+  <div class="callout tip"><div class="callout-icon">&#128161;</div><div class="callout-body"><div class="callout-title">Warehouses in the System</div><div class="callout-text">Warehouses are used throughout RetailERP: Stock Receipt (GRN) receives goods into a warehouse, Dispatch ships goods from a warehouse, Stock Overview filters by warehouse, and Orders are associated with fulfillment warehouses. Set up your warehouses before creating GRNs or orders.</div></div></div>
+</div>
+
 <!-- ==================== CHAPTER 19 — PRODUCTION PLANNING ==================== -->
 <div class="chapter">
   <div class="chapter-header">
@@ -3349,7 +3426,7 @@ pre {
     </div>
     <div style="text-align:center;">
       <div style="font-size:8pt;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Date</div>
-      <div style="font-weight:700;color:#1e293b;">2026-03-23</div>
+      <div style="font-weight:700;color:#1e293b;">2026-03-27</div>
     </div>
     <div style="text-align:center;">
       <div style="font-size:8pt;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Modules</div>

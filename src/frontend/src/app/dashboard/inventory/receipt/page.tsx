@@ -14,6 +14,11 @@ import {
   Package,
   ChevronDown,
   Search,
+  ArrowLeft,
+  Edit2,
+  Eye,
+  RefreshCw,
+  ClipboardList,
 } from "lucide-react";
 
 /* ========== Types ========== */
@@ -37,7 +42,6 @@ interface Article {
 }
 
 interface SizeChartEntry {
-  sizeChartId?: string;
   euroSize: number;
   ukSize: string;
   indSize: string;
@@ -69,9 +73,31 @@ interface GrnArticleEntry {
   sizes: GrnSizeEntry[];
 }
 
-/* ========== Constants ========== */
+interface GrnListRow {
+  grnId: string;
+  grnNumber: string;
+  warehouseId: string;
+  warehouseName: string;
+  warehouseCode: string;
+  receiptDate: string;
+  sourceType: string;
+  referenceNo?: string;
+  status: string;
+  totalQuantity: number;
+  lineCount: number;
+  createdAt: string;
+}
 
-// Default size chart when API is not available
+interface GrnDetailLine {
+  grnLineId: string;
+  articleId: string;
+  articleCode: string;
+  articleName: string;
+  euroSize?: number;
+  quantity: number;
+}
+
+/* ========== Constants ========== */
 const DEFAULT_SIZE_CHART: SizeChartEntry[] = [
   { euroSize: 39, ukSize: "06", indSize: "06", usaSize: "6.5", cm: "24.5", inch: "9.6" },
   { euroSize: 39, ukSize: "06.5", indSize: "06.5", usaSize: "7", cm: "25", inch: "9.8" },
@@ -88,12 +114,6 @@ const DEFAULT_SIZE_CHART: SizeChartEntry[] = [
 ];
 
 /* ========== Helpers ========== */
-function generateGrnNumber(): string {
-  const year = new Date().getFullYear();
-  const seq = String(Math.floor(Math.random() * 900) + 100).padStart(3, "0");
-  return `GRN-${year}-${seq}`;
-}
-
 function generateEan13(articleIndex: number, sizeIndex: number): string {
   const base = 8596119;
   const artPart = articleIndex.toString().padStart(3, "0");
@@ -106,6 +126,21 @@ function generateEan13(articleIndex: number, sizeIndex: number): string {
   }
   const checkDigit = (10 - (sum % 10)) % 10;
   return `${partial.slice(0, 12)}${checkDigit}`;
+}
+
+function formatDate(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function statusBadge(status: string) {
+  const map: Record<string, string> = {
+    Draft: "bg-yellow-100 text-yellow-800 border border-yellow-300",
+    Confirmed: "bg-green-100 text-green-800 border border-green-300",
+    Cancelled: "bg-red-100 text-red-700 border border-red-300",
+  };
+  return map[status] ?? "bg-muted text-muted-foreground";
 }
 
 /* ========== Article Selector Dropdown ========== */
@@ -142,7 +177,7 @@ function ArticleSelector({
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 w-full bg-card border rounded-xl shadow-xl z-40 max-h-72 overflow-hidden">
+          <div className="absolute top-full left-0 mt-1 w-full bg-card border rounded-xl shadow-xl z-40 max-h-72 overflow-hidden min-w-[340px]">
             <div className="p-2 border-b">
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -158,35 +193,23 @@ function ArticleSelector({
             </div>
             <div className="overflow-y-auto max-h-52">
               {filtered.length === 0 ? (
-                <div className="p-4 text-sm text-muted-foreground text-center">
-                  No articles available
-                </div>
+                <div className="p-4 text-sm text-muted-foreground text-center">No articles available</div>
               ) : (
                 filtered.map((article) => (
                   <button
                     key={article.articleId}
-                    onClick={() => {
-                      onSelect(article);
-                      setOpen(false);
-                      setSearch("");
-                    }}
+                    onClick={() => { onSelect(article); setOpen(false); setSearch(""); }}
                     className="w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors border-b last:border-b-0 flex items-center justify-between"
                   >
                     <div>
                       <span className="font-mono text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded mr-2">
                         {article.articleCode}
                       </span>
-                      <span className="text-sm font-medium">
-                        {article.articleName}
-                      </span>
+                      <span className="text-sm font-medium">{article.articleName}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {article.brandName}
-                      </span>
-                      <span className="text-xs font-medium">
-                        {formatCurrency(article.mrp)}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{article.brandName}</span>
+                      <span className="text-xs font-medium">{formatCurrency(article.mrp)}</span>
                     </div>
                   </button>
                 ))
@@ -202,20 +225,19 @@ function ArticleSelector({
 /* ========== Size Run Card ========== */
 function SizeRunCard({
   entry,
-  entryIndex,
   onQuantityChange,
   onRemove,
+  readOnly,
 }: {
   entry: GrnArticleEntry;
-  entryIndex: number;
   onQuantityChange: (localId: string, sizeIndex: number, qty: number) => void;
   onRemove: (localId: string) => void;
+  readOnly?: boolean;
 }) {
   const totalQty = entry.sizes.reduce((sum, s) => sum + s.quantity, 0);
 
   return (
     <div className="border rounded-xl overflow-hidden bg-card shadow-sm">
-      {/* Card Header */}
       <div className="flex items-center justify-between px-5 py-3 bg-muted/40 border-b">
         <div className="flex items-center gap-3 flex-wrap">
           <span className="font-mono text-xs bg-primary text-primary-foreground px-2.5 py-1 rounded-md font-bold">
@@ -237,24 +259,24 @@ function SizeRunCard({
           <span className="text-xs text-muted-foreground font-medium">
             UOM: <span className="text-foreground font-semibold">{entry.uom}</span>
           </span>
-          <button
-            onClick={() => onRemove(entry.localId)}
-            className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
-            title="Remove article"
-          >
-            <Trash2 size={16} className="text-destructive" />
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => onRemove(entry.localId)}
+              className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+              title="Remove article"
+            >
+              <Trash2 size={16} className="text-destructive" />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Size Chart Title */}
       <div className="text-center py-2 bg-muted/20 border-b">
         <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
           Men&apos;s Size Run Chart
         </p>
       </div>
 
-      {/* Size Run Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-collapse min-w-[900px]">
           <thead>
@@ -263,151 +285,61 @@ function SizeRunCard({
                 IND-UK-SIZE
               </th>
               {entry.sizes.map((s, idx) => (
-                <th
-                  key={idx}
-                  className="px-2 py-2 text-center font-bold text-primary border-r border-border/50 whitespace-nowrap"
-                >
+                <th key={idx} className="px-2 py-2 text-center font-bold text-primary border-r border-border/50 whitespace-nowrap">
                   {s.euroSize}-{s.ukSize}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {/* UK Size Row */}
+            {[
+              { label: "UK SIZE", field: "ukSize" as const },
+              { label: "IND SIZE", field: "indSize" as const },
+              { label: "USA SIZE", field: "usaSize" as const },
+              { label: "EURO SIZE", field: "euroSize" as const },
+              { label: "CM", field: "cm" as const },
+              { label: "INCH", field: "inch" as const },
+            ].map(({ label, field }) => (
+              <tr key={label} className="border-b border-border/30">
+                <td className="px-3 py-1.5 font-semibold text-muted-foreground border-r border-border/50">{label}</td>
+                {entry.sizes.map((s, idx) => (
+                  <td key={idx} className="px-2 py-1.5 text-center border-r border-border/50">{s[field]}</td>
+                ))}
+              </tr>
+            ))}
             <tr className="border-b border-border/30">
-              <td className="px-3 py-1.5 font-semibold text-muted-foreground border-r border-border/50">
-                UK SIZE
-              </td>
+              <td className="px-3 py-2 font-semibold text-muted-foreground border-r border-border/50 bg-amber-50">EAN CODE</td>
               {entry.sizes.map((s, idx) => (
-                <td
-                  key={idx}
-                  className="px-2 py-1.5 text-center border-r border-border/50"
-                >
-                  {s.ukSize}
+                <td key={idx} className="px-1 py-2 text-center border-r border-border/50 bg-amber-50">
+                  <span className="font-mono text-[10px] leading-tight block text-amber-800">{s.eanCode}</span>
                 </td>
               ))}
             </tr>
-            {/* IND Size Row */}
             <tr className="border-b border-border/30">
-              <td className="px-3 py-1.5 font-semibold text-muted-foreground border-r border-border/50">
-                IND SIZE
-              </td>
+              <td className="px-3 py-1.5 font-semibold text-muted-foreground border-r border-border/50">STYLE CODE</td>
               {entry.sizes.map((s, idx) => (
-                <td
-                  key={idx}
-                  className="px-2 py-1.5 text-center border-r border-border/50"
-                >
-                  {s.indSize}
-                </td>
+                <td key={idx} className="px-2 py-1.5 text-center font-mono text-[10px] border-r border-border/50">{s.styleCode}</td>
               ))}
             </tr>
-            {/* USA Size Row */}
-            <tr className="border-b border-border/30">
-              <td className="px-3 py-1.5 font-semibold text-muted-foreground border-r border-border/50">
-                USA SIZE
-              </td>
-              {entry.sizes.map((s, idx) => (
-                <td
-                  key={idx}
-                  className="px-2 py-1.5 text-center border-r border-border/50"
-                >
-                  {s.usaSize}
-                </td>
-              ))}
-            </tr>
-            {/* EURO Size Row */}
-            <tr className="border-b border-border/30">
-              <td className="px-3 py-1.5 font-semibold text-muted-foreground border-r border-border/50">
-                EURO SIZE
-              </td>
-              {entry.sizes.map((s, idx) => (
-                <td
-                  key={idx}
-                  className="px-2 py-1.5 text-center border-r border-border/50"
-                >
-                  {s.euroSize}
-                </td>
-              ))}
-            </tr>
-            {/* CM Row */}
-            <tr className="border-b border-border/30">
-              <td className="px-3 py-1.5 font-semibold text-muted-foreground border-r border-border/50">
-                CM
-              </td>
-              {entry.sizes.map((s, idx) => (
-                <td
-                  key={idx}
-                  className="px-2 py-1.5 text-center border-r border-border/50"
-                >
-                  {s.cm}
-                </td>
-              ))}
-            </tr>
-            {/* INCH Row */}
-            <tr className="border-b border-border/30">
-              <td className="px-3 py-1.5 font-semibold text-muted-foreground border-r border-border/50">
-                INCH
-              </td>
-              {entry.sizes.map((s, idx) => (
-                <td
-                  key={idx}
-                  className="px-2 py-1.5 text-center border-r border-border/50"
-                >
-                  {s.inch}
-                </td>
-              ))}
-            </tr>
-            {/* EAN CODE Row */}
-            <tr className="border-b border-border/30">
-              <td className="px-3 py-2 font-semibold text-muted-foreground border-r border-border/50 bg-amber-50">
-                EAN CODE
-              </td>
-              {entry.sizes.map((s, idx) => (
-                <td
-                  key={idx}
-                  className="px-1 py-2 text-center border-r border-border/50 bg-amber-50"
-                >
-                  <span className="font-mono text-[10px] leading-tight block text-amber-800">
-                    {s.eanCode}
-                  </span>
-                </td>
-              ))}
-            </tr>
-            {/* STYLE CODE Row */}
-            <tr className="border-b border-border/30">
-              <td className="px-3 py-1.5 font-semibold text-muted-foreground border-r border-border/50">
-                STYLE CODE
-              </td>
-              {entry.sizes.map((s, idx) => (
-                <td
-                  key={idx}
-                  className="px-2 py-1.5 text-center font-mono text-[10px] border-r border-border/50"
-                >
-                  {s.styleCode}
-                </td>
-              ))}
-            </tr>
-            {/* QUANTITY Row */}
             <tr>
-              <td className="px-3 py-2 font-bold text-foreground border-r border-border/50 bg-amber-50">
-                QNTY
-              </td>
+              <td className="px-3 py-2 font-bold text-foreground border-r border-border/50 bg-amber-50">QNTY</td>
               {entry.sizes.map((s, idx) => (
-                <td
-                  key={idx}
-                  className="px-1 py-1.5 text-center border-r border-border/50 bg-amber-50"
-                >
-                  <input
-                    type="number"
-                    min="0"
-                    value={s.quantity || ""}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      onQuantityChange(entry.localId, idx, val < 0 ? 0 : val);
-                    }}
-                    className="w-full px-1 py-1.5 text-center text-sm font-bold bg-amber-100 border border-amber-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
-                    placeholder="0"
-                  />
+                <td key={idx} className="px-1 py-1.5 text-center border-r border-border/50 bg-amber-50">
+                  {readOnly ? (
+                    <span className="text-sm font-bold">{s.quantity || 0}</span>
+                  ) : (
+                    <input
+                      type="number"
+                      min="0"
+                      value={s.quantity || ""}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        onQuantityChange(entry.localId, idx, val < 0 ? 0 : val);
+                      }}
+                      className="w-full px-1 py-1.5 text-center text-sm font-bold bg-amber-100 border border-amber-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                      placeholder="0"
+                    />
+                  )}
                 </td>
               ))}
             </tr>
@@ -415,13 +347,11 @@ function SizeRunCard({
         </table>
       </div>
 
-      {/* Card Footer */}
       <div className="flex items-center justify-between px-5 py-3 bg-muted/20 border-t">
         <div className="flex items-center gap-2">
           <Package size={14} className="text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
-            TOTAL QNTY:{" "}
-            <span className="font-bold text-foreground text-base">{totalQty}</span>
+            TOTAL QNTY: <span className="font-bold text-foreground text-base">{totalQty}</span>
           </span>
         </div>
         <span className="text-sm text-muted-foreground">
@@ -432,20 +362,211 @@ function SizeRunCard({
   );
 }
 
+/* ========== GRN LIST VIEW ========== */
+function GrnListView({
+  onNew,
+  onEdit,
+  onView,
+}: {
+  onNew: () => void;
+  onEdit: (grn: GrnListRow) => void;
+  onView: (grn: GrnListRow) => void;
+}) {
+  const [grns, setGrns] = useState<GrnListRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("");
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+
+  const fetchGrns = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string> = {};
+      if (statusFilter) params.status = statusFilter;
+      if (warehouseFilter) params.warehouseId = warehouseFilter;
+      const res = await api.get<ApiResponse<GrnListRow[]>>("/api/stock/grn", { params });
+      if (res.data.success) setGrns(res.data.data || []);
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, warehouseFilter]);
+
+  useEffect(() => {
+    fetchGrns();
+  }, [fetchGrns]);
+
+  useEffect(() => {
+    api.get<ApiResponse<any>>("/api/warehouses", { params: { pageSize: 200 } }).then((r) => {
+      if (r.data.success) setWarehouses(r.data.data?.items || []);
+    }).catch(() => {});
+  }, []);
+
+  const handleDelete = async (grn: GrnListRow) => {
+    if (!confirm(`Delete GRN ${grn.grnNumber}? This cannot be undone.`)) return;
+    setDeleting(grn.grnId);
+    try {
+      await api.delete(`/api/stock/grn/${grn.grnId}`);
+      fetchGrns();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to delete GRN.");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-xl font-semibold flex items-center gap-2">
+            <ClipboardList size={22} className="text-primary" />
+            Goods Received Notes (GRN)
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Manage stock receipts — create, edit, and confirm GRNs
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchGrns}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted transition-colors"
+          >
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button
+            onClick={onNew}
+            className="flex items-center gap-1.5 px-5 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-semibold shadow-sm"
+          >
+            <Plus size={14} /> New GRN
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 p-4 bg-card border rounded-xl shadow-sm">
+        <select
+          value={warehouseFilter}
+          onChange={(e) => setWarehouseFilter(e.target.value)}
+          className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+        >
+          <option value="">All Warehouses</option>
+          {warehouses.map((w) => (
+            <option key={w.warehouseId} value={w.warehouseId}>{w.warehouseName}</option>
+          ))}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+        >
+          <option value="">All Statuses</option>
+          <option value="Draft">Draft</option>
+          <option value="Confirmed">Confirmed</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="p-12 text-center text-muted-foreground text-sm">Loading GRNs...</div>
+        ) : grns.length === 0 ? (
+          <div className="p-12 text-center">
+            <Package size={40} className="mx-auto text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">No GRNs found. Create one to get started.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40 border-b">
+                  <th className="px-4 py-3 text-left font-semibold text-muted-foreground">GRN Number</th>
+                  <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Warehouse</th>
+                  <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Receipt Date</th>
+                  <th className="px-4 py-3 text-left font-semibold text-muted-foreground">Source</th>
+                  <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Qty</th>
+                  <th className="px-4 py-3 text-right font-semibold text-muted-foreground">Lines</th>
+                  <th className="px-4 py-3 text-center font-semibold text-muted-foreground">Status</th>
+                  <th className="px-4 py-3 text-center font-semibold text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grns.map((grn) => (
+                  <tr key={grn.grnId} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3 font-mono font-semibold text-primary">{grn.grnNumber}</td>
+                    <td className="px-4 py-3">{grn.warehouseName}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatDate(grn.receiptDate)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{grn.sourceType}</td>
+                    <td className="px-4 py-3 text-right font-semibold">{grn.totalQuantity}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{grn.lineCount}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusBadge(grn.status)}`}>
+                        {grn.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => onView(grn)}
+                          className="p-1.5 rounded hover:bg-muted transition-colors"
+                          title="View"
+                        >
+                          <Eye size={14} className="text-muted-foreground" />
+                        </button>
+                        {grn.status === "Draft" && (
+                          <>
+                            <button
+                              onClick={() => onEdit(grn)}
+                              className="p-1.5 rounded hover:bg-muted transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 size={14} className="text-blue-600" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(grn)}
+                              disabled={deleting === grn.grnId}
+                              className="p-1.5 rounded hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                              title="Delete"
+                            >
+                              <Trash2 size={14} className="text-destructive" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ========== MAIN PAGE ========== */
+type PageMode = "list" | "create" | "edit" | "view";
+
 export default function StockReceiptPage() {
+  /* ---- Mode ---- */
+  const [mode, setMode] = useState<PageMode>("list");
+  const [editGrnId, setEditGrnId] = useState<string | null>(null);
+
   /* ---- Reference data ---- */
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [availableArticles, setAvailableArticles] = useState<Article[]>([]);
   const [sizeChart, setSizeChart] = useState<SizeChartEntry[]>(DEFAULT_SIZE_CHART);
 
   /* ---- GRN header state ---- */
-  const [grnNumber] = useState(() => generateGrnNumber());
+  const [savedGrnNumber, setSavedGrnNumber] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
-  const [receiptDate, setReceiptDate] = useState(() => {
-    const d = new Date();
-    return d.toISOString().split("T")[0];
-  });
+  const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [sourceType, setSourceType] = useState("Purchase");
+  const [referenceNo, setReferenceNo] = useState("");
   const [barcodeScan, setBarcodeScan] = useState("");
 
   /* ---- GRN article entries ---- */
@@ -454,6 +575,7 @@ export default function StockReceiptPage() {
   /* ---- UI state ---- */
   const [saving, setSaving] = useState(false);
   const [confirmSaving, setConfirmSaving] = useState(false);
+  const [viewReadOnly, setViewReadOnly] = useState(false);
 
   /* ---- Fetch reference data ---- */
   const fetchReferenceData = useCallback(async () => {
@@ -464,33 +586,24 @@ export default function StockReceiptPage() {
       ]);
       if (whRes.data.success) setWarehouses(whRes.data.data?.items || []);
       if (artRes.data.success) setAvailableArticles(artRes.data.data?.items || []);
-    } catch {
-      // silently fail
-    }
+    } catch { /* silently fail */ }
 
-    // Try to fetch size chart
     try {
-      const scRes = await api.get<ApiResponse<any>>("/api/sizecharts", {
-        params: { pageSize: 200 },
-      });
+      const scRes = await api.get<ApiResponse<any>>("/api/sizecharts", { params: { pageSize: 200 } });
       if (scRes.data.success) {
         const items = scRes.data.data?.items || scRes.data.data || [];
         if (items.length > 0) {
-          setSizeChart(
-            items.map((item: any) => ({
-              euroSize: item.euroSize ?? item.euro,
-              ukSize: String(item.ukSize ?? item.uk ?? ""),
-              indSize: String(item.indSize ?? item.ind ?? ""),
-              usaSize: String(item.usaSize ?? item.usa ?? ""),
-              cm: String(item.cm ?? ""),
-              inch: String(item.inch ?? ""),
-            }))
-          );
+          setSizeChart(items.map((item: any) => ({
+            euroSize: item.euroSize ?? item.euro,
+            ukSize: String(item.ukSize ?? item.uk ?? ""),
+            indSize: String(item.indSize ?? item.ind ?? ""),
+            usaSize: String(item.usaSize ?? item.usa ?? ""),
+            cm: String(item.cm ?? ""),
+            inch: String(item.inch ?? ""),
+          })));
         }
       }
-    } catch {
-      // Use default size chart
-    }
+    } catch { /* use default size chart */ }
   }, []);
 
   useEffect(() => {
@@ -499,8 +612,8 @@ export default function StockReceiptPage() {
 
   /* ---- Build size entries for an article ---- */
   const buildSizeEntries = useCallback(
-    (article: Article, artGlobalIndex: number): GrnSizeEntry[] => {
-      return sizeChart.map((sc, sizeIdx) => ({
+    (article: Article, artGlobalIndex: number): GrnSizeEntry[] =>
+      sizeChart.map((sc, sizeIdx) => ({
         euroSize: sc.euroSize,
         ukSize: sc.ukSize,
         indSize: sc.indSize,
@@ -510,17 +623,108 @@ export default function StockReceiptPage() {
         eanCode: generateEan13(artGlobalIndex, sizeIdx),
         styleCode: article.articleCode,
         quantity: 0,
-      }));
-    },
+      })),
     [sizeChart]
   );
+
+  /* ---- Reset form ---- */
+  const resetForm = useCallback(() => {
+    setSavedGrnNumber("");
+    setWarehouseId("");
+    setReceiptDate(new Date().toISOString().split("T")[0]);
+    setSourceType("Purchase");
+    setReferenceNo("");
+    setBarcodeScan("");
+    setGrnEntries([]);
+    setEditGrnId(null);
+    setViewReadOnly(false);
+  }, []);
+
+  /* ---- Load existing GRN for edit/view ---- */
+  const loadGrn = useCallback(async (grnId: string, readOnly: boolean) => {
+    try {
+      const res = await api.get<ApiResponse<any>>(`/api/stock/grn/${grnId}`);
+      if (!res.data.success) return;
+      const detail = res.data.data;
+      setSavedGrnNumber(detail.grnNumber);
+      setWarehouseId(detail.warehouseId);
+      setReceiptDate(detail.receiptDate?.split("T")[0] ?? new Date().toISOString().split("T")[0]);
+      setSourceType(detail.sourceType || "Purchase");
+      setReferenceNo(detail.referenceNo || "");
+      setViewReadOnly(readOnly);
+      setEditGrnId(grnId);
+
+      // Rebuild entries from GRN lines grouped by articleId
+      const lines: GrnDetailLine[] = detail.lines || [];
+      const grouped = new Map<string, GrnDetailLine[]>();
+      for (const line of lines) {
+        if (!grouped.has(line.articleId)) grouped.set(line.articleId, []);
+        grouped.get(line.articleId)!.push(line);
+      }
+
+      const entries: GrnArticleEntry[] = [];
+      for (const [articleId, artLines] of grouped.entries()) {
+        const article = availableArticles.find((a) => a.articleId === articleId);
+        const firstLine = artLines[0];
+        const artIndex = availableArticles.findIndex((a) => a.articleId === articleId);
+        const sizes: GrnSizeEntry[] = sizeChart.map((sc, sizeIdx) => {
+          const existing = artLines.find((l) => l.euroSize === sc.euroSize);
+          return {
+            euroSize: sc.euroSize,
+            ukSize: sc.ukSize,
+            indSize: sc.indSize,
+            usaSize: sc.usaSize,
+            cm: sc.cm,
+            inch: sc.inch,
+            eanCode: generateEan13(artIndex >= 0 ? artIndex : entries.length, sizeIdx),
+            styleCode: article?.articleCode ?? firstLine.articleCode,
+            quantity: existing?.quantity ?? 0,
+          };
+        });
+        entries.push({
+          localId: `${articleId}-loaded`,
+          articleId,
+          articleCode: article?.articleCode ?? firstLine.articleCode,
+          articleName: article?.articleName ?? firstLine.articleName,
+          brand: article?.brandName ?? "",
+          gender: article?.genderName ?? "",
+          uom: article?.uom ?? "PAIRS",
+          sizes,
+        });
+      }
+      setGrnEntries(entries);
+    } catch {
+      alert("Failed to load GRN details.");
+    }
+  }, [availableArticles, sizeChart]);
+
+  /* ---- Navigation handlers ---- */
+  const handleNew = useCallback(() => {
+    resetForm();
+    setMode("create");
+  }, [resetForm]);
+
+  const handleEdit = useCallback(async (grn: GrnListRow) => {
+    resetForm();
+    setMode("edit");
+    await loadGrn(grn.grnId, false);
+  }, [resetForm, loadGrn]);
+
+  const handleView = useCallback(async (grn: GrnListRow) => {
+    resetForm();
+    setMode("view");
+    await loadGrn(grn.grnId, true);
+  }, [resetForm, loadGrn]);
+
+  const handleBackToList = useCallback(() => {
+    resetForm();
+    setMode("list");
+  }, [resetForm]);
 
   /* ---- Add article ---- */
   const handleAddArticle = useCallback(
     (article: Article) => {
-      const artIndex = availableArticles.findIndex(
-        (a) => a.articleId === article.articleId
-      );
+      const artIndex = availableArticles.findIndex((a) => a.articleId === article.articleId);
       const newEntry: GrnArticleEntry = {
         localId: `${article.articleId}-${Date.now()}`,
         articleId: article.articleId,
@@ -560,20 +764,14 @@ export default function StockReceiptPage() {
   const handleBarcodeScan = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key !== "Enter" || !barcodeScan.trim()) return;
-      // Try to match barcode to an article
       const scanValue = barcodeScan.trim().toUpperCase();
       const matchedArticle = availableArticles.find((a) => {
         const codeClean = a.articleCode.replace(/-/g, "").toUpperCase();
         return scanValue.includes(codeClean);
       });
       if (matchedArticle) {
-        // Check if article already added
-        const alreadyAdded = grnEntries.some(
-          (e) => e.articleId === matchedArticle.articleId
-        );
-        if (!alreadyAdded) {
-          handleAddArticle(matchedArticle);
-        }
+        const alreadyAdded = grnEntries.some((e) => e.articleId === matchedArticle.articleId);
+        if (!alreadyAdded) handleAddArticle(matchedArticle);
       }
       setBarcodeScan("");
     },
@@ -581,50 +779,69 @@ export default function StockReceiptPage() {
   );
 
   /* ---- Totals ---- */
-  const articleTotals = useMemo(
-    () =>
-      grnEntries.map((entry) =>
-        entry.sizes.reduce((sum, s) => sum + s.quantity, 0)
-      ),
+  const grandTotal = useMemo(
+    () => grnEntries.reduce((sum, entry) => sum + entry.sizes.reduce((s, sz) => s + sz.quantity, 0), 0),
     [grnEntries]
   );
 
-  const grandTotal = useMemo(
-    () => articleTotals.reduce((sum, t) => sum + t, 0),
-    [articleTotals]
+  /* ---- Build flat lines payload ---- */
+  const buildLines = useCallback(() =>
+    grnEntries.flatMap((entry) =>
+      entry.sizes
+        .filter((s) => s.quantity > 0)
+        .map((s) => ({
+          articleId: entry.articleId,
+          euroSize: s.euroSize,
+          quantity: s.quantity,
+        }))
+    ),
+    [grnEntries]
   );
 
-  /* ---- Save as Draft ---- */
+  /* ---- Validation ---- */
+  const validate = (): string | null => {
+    if (!warehouseId) return "Please select a warehouse.";
+    if (grnEntries.length === 0) return "Please add at least one article.";
+    if (grandTotal <= 0) return "Please enter quantities for at least one size.";
+    return null;
+  };
+
+  /* ---- Save as Draft (create or update) ---- */
   const handleSaveDraft = async () => {
-    if (!warehouseId) {
-      alert("Please select a warehouse.");
-      return;
-    }
-    if (grnEntries.length === 0) {
-      alert("Please add at least one article.");
-      return;
-    }
+    const err = validate();
+    if (err) { alert(err); return; }
+
+    const lines = buildLines();
+    if (lines.length === 0) { alert("Please enter quantities for at least one size."); return; }
+
     setSaving(true);
     try {
-      await api.post("/api/stock/grn", {
-        grnNumber,
+      const payload = {
         warehouseId,
         receiptDate,
-        status: "DRAFT",
-        entries: grnEntries.map((entry) => ({
-          articleId: entry.articleId,
-          sizes: entry.sizes
-            .filter((s) => s.quantity > 0)
-            .map((s) => ({
-              euroSize: s.euroSize,
-              quantity: s.quantity,
-              eanCode: s.eanCode,
-            })),
-          totalQuantity: entry.sizes.reduce((sum, s) => sum + s.quantity, 0),
-        })),
-        grandTotal,
-      });
-      alert("GRN saved as draft successfully.");
+        sourceType,
+        referenceNo: referenceNo || undefined,
+        lines,
+      };
+
+      if (mode === "edit" && editGrnId) {
+        // Update existing draft
+        const res = await api.put<ApiResponse<any>>(`/api/stock/grn/${editGrnId}`, payload);
+        if (res.data.success) {
+          setSavedGrnNumber(res.data.data?.grnNumber || savedGrnNumber);
+          alert(`GRN ${res.data.data?.grnNumber} updated successfully.`);
+        }
+      } else {
+        // Create new draft
+        const res = await api.post<ApiResponse<any>>("/api/stock/grn", payload);
+        if (res.data.success) {
+          const data = res.data.data;
+          setSavedGrnNumber(data.grnNumber);
+          setEditGrnId(data.grnId);
+          alert(`GRN ${data.grnNumber} saved as draft.`);
+          setMode("edit"); // switch to edit mode so subsequent saves update
+        }
+      }
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to save GRN draft.");
     } finally {
@@ -634,157 +851,190 @@ export default function StockReceiptPage() {
 
   /* ---- Confirm Receipt ---- */
   const handleConfirmReceipt = async () => {
-    if (!warehouseId) {
-      alert("Please select a warehouse.");
-      return;
-    }
-    if (grnEntries.length === 0) {
-      alert("Please add at least one article.");
-      return;
-    }
-    if (grandTotal <= 0) {
-      alert("Total quantity must be greater than zero.");
-      return;
-    }
+    const err = validate();
+    if (err) { alert(err); return; }
+
+    const lines = buildLines();
+    if (lines.length === 0) { alert("Please enter quantities for at least one size."); return; }
+
     setConfirmSaving(true);
     try {
-      await api.post("/api/stock/grn", {
-        grnNumber,
-        warehouseId,
-        receiptDate,
-        status: "CONFIRMED",
-        entries: grnEntries.map((entry) => ({
-          articleId: entry.articleId,
-          sizes: entry.sizes
-            .filter((s) => s.quantity > 0)
-            .map((s) => ({
-              euroSize: s.euroSize,
-              quantity: s.quantity,
-              eanCode: s.eanCode,
-            })),
-          totalQuantity: entry.sizes.reduce((sum, s) => sum + s.quantity, 0),
-        })),
-        grandTotal,
-      });
-      alert("GRN confirmed and stock updated successfully.");
+      const payload = { warehouseId, receiptDate, sourceType, referenceNo: referenceNo || undefined, lines };
+      let grnId = editGrnId;
+
+      if (!grnId) {
+        // Step 1: Create draft first
+        const createRes = await api.post<ApiResponse<any>>("/api/stock/grn", payload);
+        if (!createRes.data.success) throw new Error(createRes.data.message || "Failed to create GRN");
+        grnId = createRes.data.data.grnId;
+        setSavedGrnNumber(createRes.data.data.grnNumber);
+      } else {
+        // Step 1: Update the existing draft with latest data
+        await api.put<ApiResponse<any>>(`/api/stock/grn/${grnId}`, payload);
+      }
+
+      // Step 2: Confirm the GRN
+      const confirmRes = await api.post<ApiResponse<any>>(`/api/stock/grn/${grnId}/confirm`);
+      if (!confirmRes.data.success) throw new Error(confirmRes.data.message || "Failed to confirm GRN");
+
+      const grnNumber = confirmRes.data.data?.grnNumber || savedGrnNumber;
+      alert(`GRN ${grnNumber} confirmed. Stock has been updated.`);
+      handleBackToList();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to confirm GRN.");
+      alert(err.response?.data?.message || err.message || "Failed to confirm GRN.");
     } finally {
       setConfirmSaving(false);
     }
   };
 
   /* ---- Excluded article IDs (already added) ---- */
-  const excludedArticleIds = useMemo(
-    () => grnEntries.map((e) => e.articleId),
-    [grnEntries]
-  );
+  const excludedArticleIds = useMemo(() => grnEntries.map((e) => e.articleId), [grnEntries]);
 
   const inputCls =
     "w-full px-3 py-2.5 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary";
+
+  /* ===== LIST MODE ===== */
+  if (mode === "list") {
+    return (
+      <div className="space-y-5">
+        <GrnListView onNew={handleNew} onEdit={handleEdit} onView={handleView} />
+        <div className="text-center py-3">
+          <p className="text-xs text-muted-foreground">
+            Powered by <span className="font-semibold text-primary">Shalive Solutions</span> RetailERP
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ===== CREATE / EDIT / VIEW MODE ===== */
+  const isViewMode = mode === "view" || viewReadOnly;
+  const isEditMode = mode === "edit";
+  const pageTitle = isViewMode ? "View GRN" : isEditMode ? "Edit GRN (Draft)" : "New Stock Receipt (GRN)";
+  const displayGrnNumber = savedGrnNumber || (isViewMode || isEditMode ? "Loading..." : "Auto-assigned on save");
 
   return (
     <div className="space-y-5">
       {/* ===== Page Header ===== */}
       <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-xl font-semibold flex items-center gap-2">
-            <Package size={22} className="text-primary" />
-            Stock Receipt (GRN)
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Record goods received at warehouse &mdash; Size-wise entry with barcode scanning
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted transition-colors">
-            <Printer size={14} /> Print GRN
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted transition-colors">
-            <Download size={14} /> Export
-          </button>
+        <div className="flex items-center gap-3">
           <button
-            onClick={handleSaveDraft}
-            disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm border rounded-lg hover:bg-muted transition-colors font-medium disabled:opacity-50"
+            onClick={handleBackToList}
+            className="p-2 rounded-lg border hover:bg-muted transition-colors"
+            title="Back to GRN list"
           >
-            <Save size={14} />
-            {saving ? "Saving..." : "Save as Draft"}
+            <ArrowLeft size={16} />
           </button>
-          <button
-            onClick={handleConfirmReceipt}
-            disabled={confirmSaving}
-            className="flex items-center gap-1.5 px-5 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-semibold disabled:opacity-50 shadow-sm"
-          >
-            <CheckCircle size={14} />
-            {confirmSaving ? "Confirming..." : "Confirm Receipt"}
-          </button>
+          <div>
+            <h1 className="text-xl font-semibold flex items-center gap-2">
+              <Package size={22} className="text-primary" />
+              {pageTitle}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Record goods received at warehouse — Size-wise entry with barcode scanning
+            </p>
+          </div>
         </div>
+
+        {!isViewMode && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted transition-colors">
+              <Printer size={14} /> Print GRN
+            </button>
+            <button className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted transition-colors">
+              <Download size={14} /> Export
+            </button>
+            <button
+              onClick={handleSaveDraft}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm border rounded-lg hover:bg-muted transition-colors font-medium disabled:opacity-50"
+            >
+              <Save size={14} />
+              {saving ? "Saving..." : "Save as Draft"}
+            </button>
+            <button
+              onClick={handleConfirmReceipt}
+              disabled={confirmSaving}
+              className="flex items-center gap-1.5 px-5 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-semibold disabled:opacity-50 shadow-sm"
+            >
+              <CheckCircle size={14} />
+              {confirmSaving ? "Confirming..." : "Confirm Receipt"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ===== Header Form Row ===== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-5 bg-card border rounded-xl shadow-sm">
-        {/* GRN Number */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 p-5 bg-card border rounded-xl shadow-sm">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-            GRN Number
-          </label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">GRN Number</label>
           <input
             type="text"
-            value={grnNumber}
+            value={displayGrnNumber}
             readOnly
             className={`${inputCls} bg-muted/50 cursor-not-allowed font-mono font-semibold`}
           />
         </div>
-
-        {/* Warehouse */}
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-            Warehouse *
-          </label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Warehouse *</label>
           <select
             value={warehouseId}
             onChange={(e) => setWarehouseId(e.target.value)}
-            className={inputCls}
+            disabled={isViewMode}
+            className={`${inputCls} ${isViewMode ? "bg-muted/50 cursor-not-allowed" : ""}`}
           >
             <option value="">Select Warehouse</option>
             {warehouses.map((w) => (
-              <option key={w.warehouseId} value={w.warehouseId}>
-                {w.warehouseName}
-              </option>
+              <option key={w.warehouseId} value={w.warehouseId}>{w.warehouseName}</option>
             ))}
           </select>
         </div>
-
-        {/* Receipt Date */}
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-            Receipt Date
-          </label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Receipt Date</label>
           <input
             type="date"
             value={receiptDate}
             onChange={(e) => setReceiptDate(e.target.value)}
-            className={inputCls}
+            readOnly={isViewMode}
+            className={`${inputCls} ${isViewMode ? "bg-muted/50 cursor-not-allowed" : ""}`}
           />
         </div>
-
-        {/* Barcode Scan */}
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-            Barcode Scan
-          </label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Source Type</label>
+          <select
+            value={sourceType}
+            onChange={(e) => setSourceType(e.target.value)}
+            disabled={isViewMode}
+            className={`${inputCls} ${isViewMode ? "bg-muted/50 cursor-not-allowed" : ""}`}
+          >
+            <option value="Purchase">Purchase</option>
+            <option value="Production">Production</option>
+            <option value="Return">Return</option>
+            <option value="Transfer">Transfer</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Reference No</label>
+          <input
+            type="text"
+            value={referenceNo}
+            onChange={(e) => setReferenceNo(e.target.value)}
+            readOnly={isViewMode}
+            placeholder="PO/Invoice no."
+            className={`${inputCls} ${isViewMode ? "bg-muted/50 cursor-not-allowed" : ""}`}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Barcode Scan</label>
           <div className="relative">
-            <Barcode
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
+            <Barcode size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={barcodeScan}
               onChange={(e) => setBarcodeScan(e.target.value)}
               onKeyDown={handleBarcodeScan}
-              placeholder="Scan or type barcode + Enter..."
+              disabled={isViewMode}
+              placeholder="Scan barcode + Enter..."
               className={`${inputCls} pl-10`}
             />
           </div>
@@ -795,40 +1045,32 @@ export default function StockReceiptPage() {
       {grnEntries.length === 0 ? (
         <div className="border-2 border-dashed rounded-xl p-12 text-center">
           <Package size={48} className="mx-auto text-muted-foreground/40 mb-4" />
-          <h3 className="text-lg font-medium text-muted-foreground mb-1">
-            No articles added yet
-          </h3>
+          <h3 className="text-lg font-medium text-muted-foreground mb-1">No articles added yet</h3>
           <p className="text-sm text-muted-foreground mb-6">
             Add articles using the button below or scan a barcode to get started.
           </p>
-          <div className="max-w-sm mx-auto">
-            <ArticleSelector
-              articles={availableArticles}
-              onSelect={handleAddArticle}
-              excludeIds={excludedArticleIds}
-            />
-          </div>
+          {!isViewMode && (
+            <div className="max-w-sm mx-auto">
+              <ArticleSelector articles={availableArticles} onSelect={handleAddArticle} excludeIds={excludedArticleIds} />
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-5">
-          {grnEntries.map((entry, idx) => (
+          {grnEntries.map((entry) => (
             <SizeRunCard
               key={entry.localId}
               entry={entry}
-              entryIndex={idx}
               onQuantityChange={handleQuantityChange}
               onRemove={handleRemoveArticle}
+              readOnly={isViewMode}
             />
           ))}
-
-          {/* Add Article Button */}
-          <div className="max-w-md">
-            <ArticleSelector
-              articles={availableArticles}
-              onSelect={handleAddArticle}
-              excludeIds={excludedArticleIds}
-            />
-          </div>
+          {!isViewMode && (
+            <div className="max-w-md">
+              <ArticleSelector articles={availableArticles} onSelect={handleAddArticle} excludeIds={excludedArticleIds} />
+            </div>
+          )}
         </div>
       )}
 
@@ -837,20 +1079,15 @@ export default function StockReceiptPage() {
         <div className="flex items-center justify-end p-4 bg-card border rounded-xl shadow-sm">
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground">Grand Total:</span>
-            <span className="text-2xl font-bold text-primary">
-              {grandTotal}
-            </span>
+            <span className="text-2xl font-bold text-primary">{grandTotal}</span>
             <span className="text-sm text-muted-foreground">units</span>
           </div>
         </div>
       )}
 
-      {/* Branding Footer */}
       <div className="text-center py-3">
         <p className="text-xs text-muted-foreground">
-          Powered by{" "}
-          <span className="font-semibold text-primary">Shalive Solutions</span>{" "}
-          RetailERP
+          Powered by <span className="font-semibold text-primary">Shalive Solutions</span> RetailERP
         </p>
       </div>
     </div>

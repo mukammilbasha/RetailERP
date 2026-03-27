@@ -33,6 +33,7 @@ param(
     [switch]$SkipDatabase,
     [switch]$SkipHealthCheck,
     [switch]$SkipBackup,
+    [switch]$DatabaseOnly,                    # run ONLY Step 5 (database init) — skips all IIS steps
     [switch]$NonInteractive                   # no confirmation prompts (CI use)
 )
 
@@ -117,6 +118,11 @@ Log "  Environment : $Environment" 'White'
 Log "  Deploy Root : $DeployRoot" 'White'
 Log "  Pack Dir    : $PackDir" 'White'
 Log $br 'DarkCyan'
+
+if ($DatabaseOnly) {
+    $NonInteractive = $true
+    Log "  Mode: DATABASE INIT ONLY (Steps 3/4/6/7/8 skipped)" 'Yellow'
+}
 
 if (-not $NonInteractive) {
     $confirm = Read-Host "`n  Proceed with installation? (yes/no)"
@@ -228,15 +234,17 @@ if (-not $SkipPrereqs) {
     } else { OK "URL Rewrite present" }
 
 } else {
-    $env:PSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','Machine') + ';' +
-                        [System.Environment]::GetEnvironmentVariable('PSModulePath','User')
-    Import-Module WebAdministration -ErrorAction SilentlyContinue
-    if (-not (Get-Module WebAdministration)) {
-        $waPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules\WebAdministration\WebAdministration.psd1"
-        if (Test-Path $waPath) {
-            Import-Module $waPath -ErrorAction Stop
-        } else {
-            Fail "WebAdministration module not found. Is IIS installed? Run without -SkipPrereqs to install it."
+    if (-not $DatabaseOnly) {
+        $env:PSModulePath = [System.Environment]::GetEnvironmentVariable('PSModulePath','Machine') + ';' +
+                            [System.Environment]::GetEnvironmentVariable('PSModulePath','User')
+        Import-Module WebAdministration -ErrorAction SilentlyContinue
+        if (-not (Get-Module WebAdministration)) {
+            $waPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules\WebAdministration\WebAdministration.psd1"
+            if (Test-Path $waPath) {
+                Import-Module $waPath -ErrorAction Stop
+            } else {
+                Fail "WebAdministration module not found. Is IIS installed? Run without -SkipPrereqs to install it."
+            }
         }
     }
     Warn "Prereq installation skipped (-SkipPrereqs)"
@@ -279,6 +287,10 @@ if (-not $SkipBackup) {
 # ==============================================================================
 Step "STEP 3 - Stopping IIS App Pools"
 
+if ($DatabaseOnly) {
+    Warn "Step 3 skipped (-DatabaseOnly)"
+} else {
+
 $allPools = @($Services | ForEach-Object { "RetailERP-$($_.Name)" }) + @("RetailERP-Frontend")
 foreach ($pool in $allPools) {
     if ((Test-Path "IIS:\AppPools\$pool") -and
@@ -289,10 +301,16 @@ foreach ($pool in $allPools) {
 }
 Start-Sleep -Seconds 3
 
+} # end -not DatabaseOnly
+
 # ==============================================================================
 # STEP 4 - Copy Files
 # ==============================================================================
 Step "STEP 4 - Deploying Files to $DeployRoot"
+
+if ($DatabaseOnly) {
+    Warn "Step 4 skipped (-DatabaseOnly)"
+} else {
 
 # Helper: grant IIS AppPool identity read+execute on a path
 # Wrapped in try/catch because the app pool identity may not exist yet
@@ -366,6 +384,8 @@ if (Test-Path $feSrc) {
     OK "Deployed Frontend -> $feDest"
 }
 
+} # end -not DatabaseOnly
+
 # ==============================================================================
 # STEP 5 - Database
 # ==============================================================================
@@ -377,7 +397,7 @@ if (-not $SkipDatabase) {
         'dev'  { "Server=localhost,1434;Database=RetailERP;User Id=sa;Password=RetailERP@2024!;TrustServerCertificate=true" }
         'qa'   { if ($env:RETAILERP_QA_CONNECTION)   { $env:RETAILERP_QA_CONNECTION }   else { "Server=localhost;Database=RetailERP;Integrated Security=true" } }
         'uat'  { if ($env:RETAILERP_UAT_CONNECTION)  { $env:RETAILERP_UAT_CONNECTION }  else { "Server=localhost;Database=RetailERP;Integrated Security=true" } }
-        'prod' { if ($env:RETAILERP_PROD_CONNECTION) { $env:RETAILERP_PROD_CONNECTION } else { "Server=localhost;Database=RetailERP;Integrated Security=true" } }
+        'prod' { if ($env:RETAILERP_PROD_CONNECTION) { $env:RETAILERP_PROD_CONNECTION } else { "Server=.\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true" } }
     }
 
     # Parse server+db from connection string for sqlcmd
@@ -425,6 +445,10 @@ if (-not $SkipDatabase) {
 # STEP 6 - Configure IIS App Pools & Sites
 # ==============================================================================
 Step "STEP 6 - Configuring IIS"
+
+if ($DatabaseOnly) {
+    Warn "Step 6 skipped (-DatabaseOnly)"
+} else {
 
 function Set-AppPoolEnvVar([string]$poolName, [string]$varName, [string]$varValue) {
     $cfgPath = "system.applicationHost/applicationPools/add[@name='$poolName']/environmentVariables/add[@name='$varName']"
@@ -514,10 +538,16 @@ if (-not (Get-NetFirewallRule -DisplayName "RetailERP Frontend" -ErrorAction Sil
 }
 OK "Firewall rules configured"
 
+} # end -not DatabaseOnly
+
 # ==============================================================================
 # STEP 7 - Start All Services
 # ==============================================================================
 Step "STEP 7 - Starting Services"
+
+if ($DatabaseOnly) {
+    Warn "Step 7 skipped (-DatabaseOnly)"
+} else {
 
 # Restart IIS to apply hosting bundle / URL rewrite changes
 iisreset /noforce /timeout:30 2>$null | Out-Null
@@ -534,10 +564,16 @@ Start-WebAppPool -Name "RetailERP-Frontend" -ErrorAction SilentlyContinue
 Start-Website    -Name "RetailERP-Frontend" -ErrorAction SilentlyContinue
 OK "Started: RetailERP-Frontend"
 
+} # end -not DatabaseOnly
+
 # ==============================================================================
 # STEP 8 - Health Checks
 # ==============================================================================
 Step "STEP 8 - Health Checks"
+
+if ($DatabaseOnly) {
+    Warn "Step 8 skipped (-DatabaseOnly)"
+} else {
 
 if ($script:HostingBundleJustInstalled) {
     Warn "=========================================================="
@@ -602,6 +638,8 @@ if (-not $SkipHealthCheck) {
 } else {
     Warn "Health checks skipped (-SkipHealthCheck)"
 }
+
+} # end -not DatabaseOnly
 
 # ==============================================================================
 # DONE - Audit log

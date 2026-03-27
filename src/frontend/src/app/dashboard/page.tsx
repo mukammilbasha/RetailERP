@@ -509,10 +509,13 @@ export default function DashboardPage() {
     setLoading(true);
     setOrdersLoading(true);
 
+    const toDate = new Date().toISOString().split("T")[0];
+    const fromDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
     try {
       const [salesRes, inventoryRes, articlesRes, clientsRes, ordersRes, invoicesRes] =
         await Promise.allSettled([
-          api.get<ApiResponse<any>>("/api/reports/sales"),
+          api.get<ApiResponse<any>>("/api/reports/sales", { params: { fromDate, toDate } }),
           api.get<ApiResponse<any>>("/api/reports/inventory"),
           api.get<ApiResponse<any>>("/api/articles", { params: { pageSize: 1 } }),
           api.get<ApiResponse<any>>("/api/clients", { params: { pageSize: 1 } }),

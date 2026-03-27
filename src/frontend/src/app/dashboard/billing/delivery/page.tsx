@@ -61,7 +61,14 @@ export default function DeliveryNotesPage() {
         },
       });
       if (data.success) {
-        setDeliveryNotes(data.data?.items || []);
+        const items = (data.data?.items || []).map((inv: any) => ({
+          ...inv,
+          deliveryNoteId: inv.deliveryNoteId || inv.invoiceId || "",
+          deliveryNo: inv.deliveryNo || inv.invoiceNumber || inv.invoiceNo || "",
+          deliveryDate: inv.deliveryDate || inv.invoiceDate || null,
+          invoiceNo: inv.invoiceNumber || inv.invoiceNo || "",
+        }));
+        setDeliveryNotes(items);
         setTotalCount(data.data?.totalCount || 0);
       }
     } catch {

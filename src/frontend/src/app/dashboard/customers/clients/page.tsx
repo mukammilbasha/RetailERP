@@ -7,6 +7,8 @@ import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FieldError } from "@/components/ui/field-error";
 import { required, pattern, PATTERNS, hasErrors, type ValidationError } from "@/lib/validators";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface Client {
   clientId: string;
@@ -22,6 +24,42 @@ interface Client {
   marginPercent: number;
   isActive: boolean;
 }
+
+// GST state code map (state name → 2-digit code)
+const STATE_GST_CODE: Record<string, string> = {
+  "Jammu and Kashmir": "01", "Himachal Pradesh": "02", "Punjab": "03",
+  "Chandigarh": "04", "Uttarakhand": "05", "Haryana": "06", "Delhi": "07",
+  "Rajasthan": "08", "Uttar Pradesh": "09", "Bihar": "10", "Sikkim": "11",
+  "Arunachal Pradesh": "12", "Nagaland": "13", "Manipur": "14", "Mizoram": "15",
+  "Tripura": "16", "Meghalaya": "17", "Assam": "18", "West Bengal": "19",
+  "Jharkhand": "20", "Odisha": "21", "Chhattisgarh": "22", "Madhya Pradesh": "23",
+  "Gujarat": "24", "Dadra and Nagar Haveli and Daman and Diu": "26",
+  "Maharashtra": "27", "Karnataka": "29", "Goa": "30", "Lakshadweep": "31",
+  "Kerala": "32", "Tamil Nadu": "33", "Puducherry": "34",
+  "Andaman and Nicobar Islands": "35", "Telangana": "36", "Andhra Pradesh": "37", "Ladakh": "38",
+};
+
+// Reverse map: GST code → state name
+const GST_CODE_STATE: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_GST_CODE).map(([s, c]) => [c, s])
+);
+
+// State → zone mapping
+const STATE_ZONE: Record<string, string> = {
+  "Delhi": "NORTH", "Haryana": "NORTH", "Punjab": "NORTH", "Uttarakhand": "NORTH",
+  "Himachal Pradesh": "NORTH", "Jammu and Kashmir": "NORTH", "Ladakh": "NORTH",
+  "Uttar Pradesh": "NORTH", "Rajasthan": "NORTH", "Chandigarh": "NORTH",
+  "Maharashtra": "WEST", "Gujarat": "WEST", "Goa": "WEST",
+  "Dadra and Nagar Haveli and Daman and Diu": "WEST", "Lakshadweep": "WEST",
+  "Tamil Nadu": "SOUTH", "Kerala": "SOUTH", "Karnataka": "SOUTH",
+  "Telangana": "SOUTH", "Andhra Pradesh": "SOUTH", "Puducherry": "SOUTH",
+  "Andaman and Nicobar Islands": "SOUTH",
+  "West Bengal": "EAST", "Bihar": "EAST", "Jharkhand": "EAST",
+  "Odisha": "EAST", "Sikkim": "EAST", "Arunachal Pradesh": "EAST",
+  "Nagaland": "EAST", "Manipur": "EAST", "Mizoram": "EAST",
+  "Tripura": "EAST", "Meghalaya": "EAST", "Assam": "EAST",
+  "Madhya Pradesh": "CENTRAL", "Chhattisgarh": "CENTRAL",
+};
 
 const INDIAN_STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -63,6 +101,8 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [errors, setErrors] = useState<ValidationError>({});
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const updateForm = (field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -101,17 +141,17 @@ export default function ClientsPage() {
     setEditingClient(client);
     setErrors({});
     setForm({
-      clientCode: client.clientCode,
-      clientName: client.clientName,
-      organisation: client.organisation,
-      gstin: client.gstin,
-      state: client.state,
+      clientCode: client.clientCode || "",
+      clientName: client.clientName || "",
+      organisation: client.organisation || "",
+      gstin: client.gstin || "",
+      state: client.state || "",
       stateCode: client.stateCode || "",
-      zone: client.zone,
-      email: client.email,
-      contactNo: client.contactNo,
-      marginPercent: client.marginPercent,
-      isActive: client.isActive,
+      zone: client.zone || "",
+      email: client.email || "",
+      contactNo: client.contactNo || "",
+      marginPercent: client.marginPercent ?? 0,
+      isActive: client.isActive ?? true,
     });
     setModalOpen(true);
   };
@@ -131,23 +171,32 @@ export default function ClientsPage() {
     try {
       if (editingClient) {
         await api.put(`/api/clients/${editingClient.clientId}`, form);
+        showToast("success", "Client Updated", `"${form.clientName}" has been updated successfully.`);
       } else {
         await api.post("/api/clients", form);
+        showToast("success", "Client Created", `"${form.clientName}" has been added successfully.`);
       }
       setModalOpen(false);
       fetchClients();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to save client");
+      showToast("error", "Failed to Save", err.response?.data?.message || "An error occurred while saving the client.");
     }
   };
 
   const handleDelete = async (client: Client) => {
-    if (!confirm(`Delete client "${client.clientName}"?`)) return;
+    const confirmed = await confirm({
+      title: "Delete Client",
+      message: `Are you sure you want to delete "${client.clientName}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/clients/${client.clientId}`);
+      showToast("success", "Client Deleted", `"${client.clientName}" has been removed.`);
       fetchClients();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete client");
+      showToast("error", "Failed to Delete", err.response?.data?.message || "An error occurred while deleting the client.");
     }
   };
 
@@ -189,6 +238,7 @@ export default function ClientsPage() {
         onAdd={openAdd}
         onEdit={openEdit}
         onDelete={handleDelete}
+        onRefresh={fetchClients}
         onImport={() => {}}
         onExport={() => {}}
         addLabel="Add Client"
@@ -244,8 +294,26 @@ export default function ClientsPage() {
             <input
               type="text"
               value={form.gstin}
-              onChange={(e) => updateForm("gstin", e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase();
+                if (val.length >= 2) {
+                  const code = val.substring(0, 2);
+                  const stateName = GST_CODE_STATE[code] || "";
+                  const zone = stateName ? (STATE_ZONE[stateName] || "") : "";
+                  setForm((prev) => ({
+                    ...prev,
+                    gstin: val,
+                    stateCode: code,
+                    ...(stateName ? { state: stateName } : {}),
+                    ...(zone ? { zone } : {}),
+                  }));
+                } else {
+                  setForm((prev) => ({ ...prev, gstin: val }));
+                }
+                setErrors((prev) => ({ ...prev, gstin: "" }));
+              }}
               placeholder="23AADCI3682G1ZP"
+              maxLength={15}
               className={`${inputClass} font-mono ${errors.gstin ? "border-destructive" : ""}`}
             />
             <FieldError error={errors.gstin} />
@@ -255,7 +323,16 @@ export default function ClientsPage() {
               <label className={labelClass}>State *</label>
               <select
                 value={form.state}
-                onChange={(e) => updateForm("state", e.target.value)}
+                onChange={(e) => {
+                  const stateName = e.target.value;
+                  setForm((prev) => ({
+                    ...prev,
+                    state: stateName,
+                    stateCode: STATE_GST_CODE[stateName] || prev.stateCode,
+                    zone: STATE_ZONE[stateName] || prev.zone,
+                  }));
+                  setErrors((prev) => ({ ...prev, state: "" }));
+                }}
                 className={`${selectClass} ${errors.state ? "border-destructive" : ""}`}
               >
                 <option value="">Select state</option>
@@ -266,7 +343,7 @@ export default function ClientsPage() {
               <FieldError error={errors.state} />
             </div>
             <div>
-              <label className={labelClass}>State Code</label>
+              <label className={labelClass}>State Code <span className="text-xs text-muted-foreground">(auto)</span></label>
               <input
                 type="text"
                 value={form.stateCode}

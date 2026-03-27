@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 
 interface AuditRecord {
@@ -162,6 +163,13 @@ export default function AuditLogPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={fetchAuditRecords}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={14} />
+          </button>
           <button
             onClick={() => {}}
             className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted transition-colors"

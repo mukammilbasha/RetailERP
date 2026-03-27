@@ -60,7 +60,8 @@ public class WarehousesController : ControllerBase
                 City = w.City,
                 State = w.State,
                 PinCode = w.PinCode,
-                WarehouseType = w.WarehouseType
+                WarehouseType = w.WarehouseType,
+                IsActive = w.IsActive
             })
             .ToListAsync(ct);
 
@@ -90,7 +91,8 @@ public class WarehousesController : ControllerBase
             City = w.City,
             State = w.State,
             PinCode = w.PinCode,
-            WarehouseType = w.WarehouseType
+            WarehouseType = w.WarehouseType,
+            IsActive = w.IsActive
         }));
     }
 
@@ -125,7 +127,8 @@ public class WarehousesController : ControllerBase
             City = warehouse.City,
             State = warehouse.State,
             PinCode = warehouse.PinCode,
-            WarehouseType = warehouse.WarehouseType
+            WarehouseType = warehouse.WarehouseType,
+            IsActive = warehouse.IsActive
         };
 
         return CreatedAtAction(nameof(GetById), new { id = warehouse.Id }, ApiResponse<WarehouseDto>.Ok(dto));
@@ -160,7 +163,8 @@ public class WarehousesController : ControllerBase
             City = warehouse.City,
             State = warehouse.State,
             PinCode = warehouse.PinCode,
-            WarehouseType = warehouse.WarehouseType
+            WarehouseType = warehouse.WarehouseType,
+            IsActive = warehouse.IsActive
         }));
     }
 
@@ -190,6 +194,7 @@ public class WarehouseDto
     public string? State { get; set; }
     public string? PinCode { get; set; }
     public string WarehouseType { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
 }
 
 public class CreateWarehouseRequest

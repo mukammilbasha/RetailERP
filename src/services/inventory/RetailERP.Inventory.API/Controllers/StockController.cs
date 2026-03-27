@@ -176,19 +176,25 @@ public class StockController : ControllerBase
                 LEFT JOIN master.Genders g ON a.GenderId = g.GenderId
                 WHERE a.ArticleId = @ArticleId AND a.TenantId = @TenantId;
 
-                -- Size-wise stock rows
+                -- Size-wise stock rows — LEFT JOIN from product.ArticleSizes so ALL configured
+                -- sizes appear even when ClosingStock = 0 (needed for Returns entry)
                 SELECT
-                    sl.EuroSize,
-                    sl.OpeningStock,
-                    sl.InwardQty,
-                    sl.OutwardQty,
-                    sl.ClosingStock,
+                    COALESCE(sl.EuroSize, pas.EuroSize)   AS EuroSize,
+                    ISNULL(sl.OpeningStock, 0)             AS OpeningStock,
+                    ISNULL(sl.InwardQty, 0)                AS InwardQty,
+                    ISNULL(sl.OutwardQty, 0)               AS OutwardQty,
+                    ISNULL(sl.ClosingStock, 0)             AS ClosingStock,
                     sl.LastUpdated
-                FROM inventory.StockLedger sl
-                WHERE sl.TenantId = @TenantId
+                FROM product.ArticleSizes pas
+                LEFT JOIN inventory.StockLedger sl
+                    ON  sl.ArticleId  = pas.ArticleId
+                    AND sl.EuroSize   = pas.EuroSize
                     AND sl.WarehouseId = @WarehouseId
-                    AND sl.ArticleId = @ArticleId
-                ORDER BY sl.EuroSize;";
+                    AND sl.TenantId   = @TenantId
+                WHERE pas.ArticleId = @ArticleId
+                  AND pas.TenantId  = @TenantId
+                  AND pas.IsActive  = 1
+                ORDER BY pas.EuroSize;";
 
             using var multi = await conn.QueryMultipleAsync(sql, new
             {
@@ -573,6 +579,147 @@ public class StockController : ControllerBase
         }
     }
 
+    // ────────────────────────────────────────────────────────────
+    // PUT /api/stock/grn/{id} — Update a Draft GRN's lines
+    // ────────────────────────────────────────────────────────────
+    [HttpPut("grn/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<GRNResponse>>> UpdateGRN(
+        Guid id, [FromBody] CreateGRNRequest request, CancellationToken ct)
+    {
+        try
+        {
+            if (request.Lines == null || !request.Lines.Any())
+                return BadRequest(ApiResponse<GRNResponse>.Fail("GRN must have at least one line"));
+
+            using var conn = CreateConnection();
+            conn.Open();
+            using var txn = conn.BeginTransaction();
+
+            try
+            {
+                var grn = await conn.QuerySingleOrDefaultAsync<dynamic>(
+                    @"SELECT GRNId, GRNNumber, WarehouseId, Status
+                      FROM inventory.GoodsReceivedNotes
+                      WHERE GRNId = @GRNId AND TenantId = @TenantId",
+                    new { GRNId = id, TenantId }, txn);
+
+                if (grn == null)
+                    return NotFound(ApiResponse<GRNResponse>.Fail("GRN not found"));
+
+                if ((string)grn.Status != "Draft")
+                    return BadRequest(ApiResponse<GRNResponse>.Fail("Only Draft GRNs can be updated"));
+
+                var totalQty = request.Lines.Sum(l => l.Quantity);
+
+                // Update header
+                await conn.ExecuteAsync(
+                    @"UPDATE inventory.GoodsReceivedNotes
+                      SET WarehouseId = @WarehouseId, ReceiptDate = @ReceiptDate, SourceType = @SourceType,
+                          ReferenceNo = @ReferenceNo, Notes = @Notes, TotalQuantity = @TotalQuantity,
+                          UpdatedAt = SYSUTCDATETIME()
+                      WHERE GRNId = @GRNId AND TenantId = @TenantId",
+                    new
+                    {
+                        GRNId = id,
+                        TenantId,
+                        request.WarehouseId,
+                        ReceiptDate = request.ReceiptDate ?? DateTime.UtcNow,
+                        SourceType = request.SourceType ?? "Purchase",
+                        request.ReferenceNo,
+                        request.Notes,
+                        TotalQuantity = totalQty
+                    }, txn);
+
+                // Replace all lines
+                await conn.ExecuteAsync(
+                    "DELETE FROM inventory.GRNLines WHERE GRNId = @GRNId",
+                    new { GRNId = id }, txn);
+
+                foreach (var line in request.Lines)
+                {
+                    await conn.ExecuteAsync(@"
+                        INSERT INTO inventory.GRNLines (GRNLineId, GRNId, ArticleId, EuroSize, Quantity)
+                        VALUES (NEWID(), @GRNId, @ArticleId, @EuroSize, @Quantity);",
+                        new { GRNId = id, line.ArticleId, line.EuroSize, line.Quantity }, txn);
+                }
+
+                txn.Commit();
+
+                var response = new GRNResponse
+                {
+                    GRNId = id,
+                    GRNNumber = (string)grn.GRNNumber,
+                    WarehouseId = request.WarehouseId,
+                    SourceType = request.SourceType ?? "Purchase",
+                    TotalQuantity = totalQty,
+                    Status = "Draft",
+                    LineCount = request.Lines.Count
+                };
+
+                return Ok(ApiResponse<GRNResponse>.Ok(response, "GRN updated"));
+            }
+            catch
+            {
+                txn.Rollback();
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating GRN {GRNId}", id);
+            return StatusCode(500, ApiResponse<GRNResponse>.Fail("An error occurred while updating GRN"));
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // DELETE /api/stock/grn/{id} — Delete a Draft GRN
+    // ────────────────────────────────────────────────────────────
+    [HttpDelete("grn/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<string>>> DeleteGRN(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            using var conn = CreateConnection();
+            conn.Open();
+            using var txn = conn.BeginTransaction();
+
+            try
+            {
+                var status = await conn.QuerySingleOrDefaultAsync<string>(
+                    @"SELECT Status FROM inventory.GoodsReceivedNotes
+                      WHERE GRNId = @GRNId AND TenantId = @TenantId",
+                    new { GRNId = id, TenantId }, txn);
+
+                if (status == null)
+                    return NotFound(ApiResponse<string>.Fail("GRN not found"));
+
+                if (status != "Draft")
+                    return BadRequest(ApiResponse<string>.Fail("Only Draft GRNs can be deleted"));
+
+                await conn.ExecuteAsync(
+                    "DELETE FROM inventory.GRNLines WHERE GRNId = @GRNId",
+                    new { GRNId = id }, txn);
+
+                await conn.ExecuteAsync(
+                    "DELETE FROM inventory.GoodsReceivedNotes WHERE GRNId = @GRNId AND TenantId = @TenantId",
+                    new { GRNId = id, TenantId }, txn);
+
+                txn.Commit();
+                return Ok(ApiResponse<string>.Ok("Deleted", "GRN deleted successfully"));
+            }
+            catch
+            {
+                txn.Rollback();
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting GRN {GRNId}", id);
+            return StatusCode(500, ApiResponse<string>.Fail("An error occurred while deleting GRN"));
+        }
+    }
+
     // ════════════════════════════════════════════════════════════
     //  Stock Freeze Endpoints
     // ════════════════════════════════════════════════════════════
@@ -859,10 +1006,11 @@ public class StockController : ControllerBase
             var sql = @"
                 SELECT d.DispatchId, d.DispatchNumber, d.DispatchDate, d.Status,
                        d.ReferenceOrderNo, d.TransportMode, d.VehicleNo, d.LogisticsPartner,
-                       d.TotalQuantity, d.CreatedAt,
-                       w.WarehouseName, w.WarehouseCode,
-                       c.ClientName, s.StoreName,
-                       (SELECT COUNT(*) FROM inventory.DispatchLines dl WHERE dl.DispatchId = d.DispatchId) AS LineCount
+                       d.TotalQuantity,
+                       (SELECT COUNT(*) FROM inventory.DispatchLines dl WHERE dl.DispatchId = d.DispatchId) AS LineCount,
+                       d.CreatedAt,
+                       w.WarehouseName,
+                       c.ClientName, s.StoreName
                 FROM inventory.Dispatches d
                 INNER JOIN warehouse.Warehouses w ON d.WarehouseId = w.WarehouseId
                 LEFT JOIN sales.Clients c ON d.ClientId = c.ClientId
@@ -1031,6 +1179,33 @@ public class StockController : ControllerBase
         }
     }
 
+    // PUT /api/stock/dispatch/{id}/status
+    [HttpPut("dispatch/{id:guid}/status")]
+    public async Task<ActionResult<ApiResponse<string>>> UpdateDispatchStatus(
+        Guid id, [FromBody] UpdateStatusRequest req, CancellationToken ct)
+    {
+        var valid = new[] { "Dispatched", "Delivered", "Cancelled" };
+        if (!valid.Contains(req.Status))
+            return BadRequest(ApiResponse<string>.Fail("Invalid status. Valid values: Dispatched, Delivered, Cancelled"));
+        try
+        {
+            using var conn = CreateConnection();
+            var affected = await conn.ExecuteAsync(@"
+                UPDATE inventory.Dispatches
+                SET Status = @Status, UpdatedAt = SYSUTCDATETIME()
+                WHERE DispatchId = @DispatchId AND TenantId = @TenantId;",
+                new { DispatchId = id, TenantId, req.Status });
+            if (affected == 0)
+                return NotFound(ApiResponse<string>.Fail("Dispatch not found"));
+            return Ok(ApiResponse<string>.Ok(req.Status, "Status updated successfully"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating dispatch status {DispatchId}", id);
+            return StatusCode(500, ApiResponse<string>.Fail("Error updating dispatch status"));
+        }
+    }
+
     // ════════════════════════════════════════════════════════════
     //  Returns Endpoints
     // ════════════════════════════════════════════════════════════
@@ -1046,9 +1221,10 @@ public class StockController : ControllerBase
             using var conn = CreateConnection();
             var sql = @"
                 SELECT r.ReturnId, r.ReturnNumber, r.ReturnDate, r.Status, r.Reason,
-                       r.TotalQuantity, r.Notes, r.CreatedAt,
-                       w.WarehouseName, c.ClientName, s.StoreName,
-                       (SELECT COUNT(*) FROM inventory.ReturnLines rl WHERE rl.ReturnId = r.ReturnId) AS LineCount
+                       r.TotalQuantity,
+                       (SELECT COUNT(*) FROM inventory.ReturnLines rl WHERE rl.ReturnId = r.ReturnId) AS LineCount,
+                       r.CreatedAt,
+                       w.WarehouseName, c.ClientName, s.StoreName
                 FROM inventory.StockReturns r
                 INNER JOIN warehouse.Warehouses w ON r.WarehouseId = w.WarehouseId
                 LEFT JOIN sales.Clients c ON r.ClientId = c.ClientId
@@ -1207,10 +1383,10 @@ public class StockController : ControllerBase
             using var conn = CreateConnection();
             var sql = @"
                 SELECT a.AdjustmentId, a.AdjustmentNumber, a.AdjustmentDate, a.AdjustmentType,
-                       a.Reason, a.Status, a.TotalQuantity, a.Notes, a.CreatedAt,
-                       a.ApprovedAt, a.AppliedAt,
-                       w.WarehouseName,
-                       (SELECT COUNT(*) FROM inventory.StockAdjustmentLines al WHERE al.AdjustmentId = a.AdjustmentId) AS LineCount
+                       a.Reason, a.Status, a.TotalQuantity,
+                       (SELECT COUNT(*) FROM inventory.StockAdjustmentLines al WHERE al.AdjustmentId = a.AdjustmentId) AS LineCount,
+                       a.CreatedAt, a.ApprovedAt, a.AppliedAt,
+                       w.WarehouseName
                 FROM inventory.StockAdjustments a
                 INNER JOIN warehouse.Warehouses w ON a.WarehouseId = w.WarehouseId
                 WHERE a.TenantId = @TenantId
@@ -1939,7 +2115,7 @@ public record DispatchDetailResponse
     public List<DispatchLineRow> Lines { get; set; } = new();
 }
 
-public record DispatchLineRow(Guid DispatchLineId, Guid ArticleId, string? EuroSize, int Quantity, string ArticleCode, string ArticleName, string? Color);
+public record DispatchLineRow(Guid DispatchLineId, Guid ArticleId, int? EuroSize, int Quantity, string ArticleCode, string ArticleName, string? Color);
 
 public record DispatchResponse
 {

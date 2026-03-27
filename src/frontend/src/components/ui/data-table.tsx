@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Filter, Download, ChevronLeft, ChevronRight, Edit2, Trash2 } from "lucide-react";
+import { Search, Filter, Download, ChevronLeft, ChevronRight, Edit2, Trash2, RefreshCw } from "lucide-react";
 
 export interface Column<T> {
   key: string;
@@ -25,6 +25,7 @@ interface DataTableProps<T> {
   onDelete?: (item: T) => void;
   onImport?: () => void;
   onExport?: () => void;
+  onRefresh?: () => void;
   addLabel?: string;
   loading?: boolean;
   keyExtractor: (item: T) => string;
@@ -34,7 +35,7 @@ interface DataTableProps<T> {
 
 export function DataTable<T>({
   title, subtitle, columns, data, totalCount, pageNumber, pageSize,
-  onPageChange, onSearch, onAdd, onEdit, onDelete, onImport, onExport,
+  onPageChange, onSearch, onAdd, onEdit, onDelete, onImport, onExport, onRefresh,
   addLabel = "Add", loading = false, keyExtractor, mobileColumns,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,6 +61,11 @@ export function DataTable<T>({
           {subtitle && <p className="text-xs sm:text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-2">
+          {onRefresh && (
+            <button onClick={onRefresh} className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted transition-colors" title="Refresh">
+              <RefreshCw size={14} />
+            </button>
+          )}
           {onImport && (
             <button onClick={onImport} className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted transition-colors">
               <Download size={14} /> Import

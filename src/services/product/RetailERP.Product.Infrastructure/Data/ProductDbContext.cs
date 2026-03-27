@@ -87,6 +87,11 @@ public class ProductDbContext : DbContext
             entity.ToTable("ArticleSizes", "product");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("ArticleSizeId");
+            // ArticleSizes table doesn't have audit columns from BaseAuditableEntity
+            entity.Ignore(e => e.TenantId);
+            entity.Ignore(e => e.CreatedAt);
+            entity.Ignore(e => e.UpdatedAt);
+            entity.Ignore(e => e.CreatedBy);
             entity.Property(e => e.UKSize).HasColumnType("decimal(4,1)");
             entity.Property(e => e.USSize).HasColumnType("decimal(4,1)");
             entity.Property(e => e.EANCode).HasMaxLength(20);

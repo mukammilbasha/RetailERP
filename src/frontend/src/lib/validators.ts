@@ -13,21 +13,22 @@ export const PATTERNS = {
 
 export type ValidationError = Record<string, string>;
 
-export function required(value: string, label: string): string {
-  return value.trim() ? "" : `${label} is required`;
+export function required(value: string | null | undefined, label: string): string {
+  return (value ?? "").trim() ? "" : `${label} is required`;
 }
 
-export function minLength(value: string, min: number, label: string): string {
-  return value.trim().length >= min ? "" : `${label} must be at least ${min} characters`;
+export function minLength(value: string | null | undefined, min: number, label: string): string {
+  return (value ?? "").trim().length >= min ? "" : `${label} must be at least ${min} characters`;
 }
 
-export function maxLength(value: string, max: number, label: string): string {
-  return value.trim().length <= max ? "" : `${label} must be at most ${max} characters`;
+export function maxLength(value: string | null | undefined, max: number, label: string): string {
+  return (value ?? "").trim().length <= max ? "" : `${label} must be at most ${max} characters`;
 }
 
-export function pattern(value: string, regex: RegExp, label: string, hint?: string): string {
-  if (!value.trim()) return "";
-  return regex.test(value.trim()) ? "" : `${label} format is invalid${hint ? ` (${hint})` : ""}`;
+export function pattern(value: string | null | undefined, regex: RegExp, label: string, hint?: string): string {
+  const v = (value ?? "").trim();
+  if (!v) return "";
+  return regex.test(v) ? "" : `${label} format is invalid${hint ? ` (${hint})` : ""}`;
 }
 
 export function positiveNumber(value: number | string, label: string): string {

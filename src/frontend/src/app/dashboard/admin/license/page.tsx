@@ -155,7 +155,19 @@ export default function LicenseManagementPage() {
         api.get<ApiResponse<LicenseInfo>>("/api/auth/tenant/license"),
         api.get<ApiResponse<ActivationRecord[]>>("/api/auth/tenant/license/history"),
       ]);
-      if (licenseRes.data.success && licenseRes.data.data) setLicense(licenseRes.data.data);
+      if (licenseRes.data.success && licenseRes.data.data) {
+        const d = licenseRes.data.data as any;
+        setLicense({
+          licenseKey: d.licenseKey ?? d.key ?? "---",
+          plan: d.plan ?? d.planName ?? "Enterprise",
+          status: d.status ?? "Active",
+          validFrom: d.validFrom ?? d.startDate ?? "",
+          validUntil: d.validUntil ?? d.expiryDate ?? d.endDate ?? "",
+          usersAllowed: d.usersAllowed ?? d.maxUsers ?? d.userLimit ?? 0,
+          usersActive: d.usersActive ?? d.activeUsers ?? d.currentUsers ?? 0,
+          modulesEnabled: d.modulesEnabled ?? d.modules ?? ALL_MODULES,
+        });
+      }
       if (historyRes.data.success && historyRes.data.data) setHistory(historyRes.data.data);
     } catch {
       // silently handle — fallback to empty

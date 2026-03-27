@@ -178,7 +178,7 @@ public class OrderService : IOrderService
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             OrderNo = orderNo,
-            OrderDate = request.OrderDate,
+            OrderDate = request.OrderDate == DateTime.MinValue ? DateTime.UtcNow : request.OrderDate,
             ClientId = request.ClientId,
             StoreId = request.StoreId,
             WarehouseId = request.WarehouseId,
@@ -281,9 +281,8 @@ public class OrderService : IOrderService
         Guid tenantId, Guid orderId, CreateSizeWiseOrderRequest request,
         CancellationToken ct = default)
     {
+        // Load order WITHOUT lines to avoid EF navigation fixup issues during update
         var order = await _context.Set<CustomerOrder>()
-            .Include(o => o.Lines)
-                .ThenInclude(l => l.SizeRuns)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, ct)
             ?? throw new KeyNotFoundException("Order not found");
 
@@ -291,17 +290,21 @@ public class OrderService : IOrderService
             throw new InvalidOperationException(
                 $"Only Draft orders can be updated. Current status: {order.Status}");
 
-        // Remove existing size runs and lines
-        foreach (var line in order.Lines)
+        // Load and delete existing lines separately (avoid EF navigation collection interference)
+        var existingLines = await _context.Set<OrderLine>()
+            .Include(l => l.SizeRuns)
+            .Where(l => l.OrderId == orderId)
+            .ToListAsync(ct);
+        foreach (var line in existingLines)
             _context.Set<OrderSizeRun>().RemoveRange(line.SizeRuns);
-        _context.Set<OrderLine>().RemoveRange(order.Lines);
-        order.Lines.Clear();
+        _context.Set<OrderLine>().RemoveRange(existingLines);
+        await _context.SaveChangesAsync(ct); // commit deletions; entities become Detached
 
         // Update header fields
         order.ClientId = request.ClientId;
         order.StoreId = request.StoreId;
         order.WarehouseId = request.WarehouseId;
-        order.OrderDate = request.OrderDate;
+        order.OrderDate = request.OrderDate == DateTime.MinValue ? DateTime.UtcNow : request.OrderDate;
         order.Channel = request.Channel;
         order.Notes = request.Notes;
         order.UpdatedAt = DateTime.UtcNow;
@@ -371,14 +374,14 @@ public class OrderService : IOrderService
 
             orderLine.Quantity = lineQty;
             orderLine.LineTotal = article.MRP * lineQty;
-            order.Lines.Add(orderLine);
+            _context.Set<OrderLine>().Add(orderLine); // Add directly (avoid nav collection fixup)
 
             totalQty += lineQty;
             totalMrp += article.MRP * lineQty;
             totalAmount += orderLine.LineTotal;
         }
 
-        if (!order.Lines.Any())
+        if (totalQty == 0)
             throw new ArgumentException("Order must have at least one line with quantity > 0");
 
         order.TotalQuantity = totalQty;

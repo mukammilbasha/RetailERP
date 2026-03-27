@@ -7,6 +7,8 @@ import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FieldError } from "@/components/ui/field-error";
 import { required, hasErrors, type ValidationError } from "@/lib/validators";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface Brand {
   brandId: string;
@@ -20,17 +22,21 @@ export default function BrandsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<"All" | "Active" | "Inactive">("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [formName, setFormName] = useState("");
   const [formActive, setFormActive] = useState(true);
   const [errors, setErrors] = useState<ValidationError>({});
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const fetchBrands = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get<ApiResponse<any>>("/api/brands", {
-        params: { searchTerm: search || undefined, pageNumber: page, pageSize: 25 },
+        params: { searchTerm: search || undefined, pageNumber: page, pageSize: 25,
+          isActive: activeFilter === "Active" ? true : activeFilter === "Inactive" ? false : undefined },
       });
       if (data.success) {
         setBrands(data.data.items || []);
@@ -41,7 +47,7 @@ export default function BrandsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, activeFilter]);
 
   useEffect(() => { fetchBrands(); }, [fetchBrands]);
 
@@ -67,26 +73,34 @@ export default function BrandsPage() {
     try {
       if (editingBrand) {
         await api.put(`/api/brands/${editingBrand.brandId}`, {
-          brandName: formName,
+          name: formName,
           isActive: formActive,
         });
       } else {
         await api.post("/api/brands", { name: formName, isActive: formActive });
       }
+      showToast("success", editingBrand ? "Brand Updated" : "Brand Created", editingBrand ? "Brand has been updated." : "Brand has been added.");
       setModalOpen(false);
       fetchBrands();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to save brand");
+      showToast("error", "Failed to Save", err.response?.data?.message || "An error occurred.");
     }
   };
 
   const handleDelete = async (brand: Brand) => {
-    if (!confirm(`Delete brand "${brand.brandName}"?`)) return;
+    const confirmed = await confirm({
+      title: "Delete Brand",
+      message: `Are you sure you want to delete "${brand.brandName}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/brands/${brand.brandId}`);
+      showToast("success", "Deleted", `"${brand.brandName}" has been removed.`);
       fetchBrands();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete brand");
+      showToast("error", "Failed to Delete", err.response?.data?.message || "An error occurred.");
     }
   };
 
@@ -100,6 +114,15 @@ export default function BrandsPage() {
 
   return (
     <>
+      {/* Active/Inactive filter */}
+      <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1 w-fit mb-4">
+        {(["All", "Active", "Inactive"] as const).map((f) => (
+          <button key={f} onClick={() => { setActiveFilter(f); setPage(1); }}
+            className={`px-3 py-1 text-xs rounded-md transition-colors ${activeFilter === f ? "bg-background shadow text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}>
+            {f}
+          </button>
+        ))}
+      </div>
       <DataTable
         title="Brands"
         subtitle="Manage product brands"

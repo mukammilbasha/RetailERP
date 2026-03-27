@@ -3157,7 +3157,11 @@ export default function InvoicesPage() {
         },
       });
       if (data.success) {
-        setInvoices(data.data?.items || []);
+        const items = (data.data?.items || []).map((inv: any) => ({
+          ...inv,
+          invoiceNo: inv.invoiceNo || inv.invoiceNumber || "",
+        }));
+        setInvoices(items);
         setTotalCount(data.data?.totalCount || 0);
       }
     } catch {

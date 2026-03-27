@@ -13,10 +13,13 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return "-";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "-";
   return new Intl.DateTimeFormat("en-IN", {
     year: "numeric",
     month: "short",
     day: "2-digit",
-  }).format(new Date(date));
+  }).format(d);
 }

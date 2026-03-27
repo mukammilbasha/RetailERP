@@ -7,6 +7,8 @@ import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FieldError } from "@/components/ui/field-error";
 import { required, hasErrors, type ValidationError } from "@/lib/validators";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface Group {
   groupId: string;
@@ -20,17 +22,20 @@ export default function GroupsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<"All" | "Active" | "Inactive">("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const [formName, setFormName] = useState("");
   const [formActive, setFormActive] = useState(true);
   const [errors, setErrors] = useState<ValidationError>({});
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
 
   const fetchGroups = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get<ApiResponse<any>>("/api/groups", {
-        params: { searchTerm: search || undefined, pageNumber: page, pageSize: 25 },
+        params: { searchTerm: search || undefined, pageNumber: page, pageSize: 25, isActive: activeFilter === "Active" ? true : activeFilter === "Inactive" ? false : undefined },
       });
       if (data.success) {
         setGroups(data.data.items || []);
@@ -41,7 +46,7 @@ export default function GroupsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, activeFilter]);
 
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
 
@@ -67,26 +72,34 @@ export default function GroupsPage() {
     try {
       if (editingGroup) {
         await api.put(`/api/groups/${editingGroup.groupId}`, {
-          groupName: formName,
+          name: formName,
           isActive: formActive,
         });
       } else {
         await api.post("/api/groups", { name: formName, isActive: formActive });
       }
+      showToast("success", editingGroup ? "Group Updated" : "Group Created", editingGroup ? "Group has been updated." : "Group has been added.");
       setModalOpen(false);
       fetchGroups();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to save group");
+      showToast("error", "Failed to Save", err.response?.data?.message || "An error occurred.");
     }
   };
 
   const handleDelete = async (group: Group) => {
-    if (!confirm(`Delete group "${group.groupName}"?`)) return;
+    const confirmed = await confirm({
+      title: "Delete Group",
+      message: `Are you sure you want to delete "${group.groupName}"? This action cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/groups/${group.groupId}`);
+      showToast("success", "Deleted", `"${group.groupName}" has been removed.`);
       fetchGroups();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete group");
+      showToast("error", "Failed to Delete", err.response?.data?.message || "An error occurred.");
     }
   };
 
@@ -100,6 +113,15 @@ export default function GroupsPage() {
 
   return (
     <>
+      {/* Active/Inactive filter */}
+      <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-1 w-fit mb-4">
+        {(["All", "Active", "Inactive"] as const).map((f) => (
+          <button key={f} onClick={() => { setActiveFilter(f); setPage(1); }}
+            className={`px-3 py-1 text-xs rounded-md transition-colors ${activeFilter === f ? "bg-background shadow text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}>
+            {f}
+          </button>
+        ))}
+      </div>
       <DataTable
         title="Groups"
         subtitle="Manage product groups"

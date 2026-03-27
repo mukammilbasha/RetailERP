@@ -2,10 +2,13 @@ x-common-env: &common-env
   ASPNETCORE_ENVIRONMENT: "Docker"
   ASPNETCORE_URLS: "http://+:8080"
   Urls: "http://+:8080"
-  ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=RetailERP;User Id=sa;Password=RetailERP@2024!;TrustServerCertificate=true"
+  ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=RetailERP;User Id=sa;Password=RetailERP@2024!;TrustServerCertificate=true;MultipleActiveResultSets=true"
   Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
   Jwt__Issuer: "RetailERP.Auth"
   Jwt__Audience: "RetailERP.Client"
+  Cors__Origins__0: "http://localhost:3000"
+  Cors__Origins__1: "http://localhost:3003"
+  Cors__Origins__2: "http://frontend:3000"
 
 services:
   # ─── Infrastructure ─────────────────────────────────────
@@ -46,7 +49,7 @@ services:
 
   # ─── Database Initialization ────────────────────────────
   db-init:
-    image: mcr.microsoft.com/mssql-tools:latest
+    image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: retailerp-db-init
     networks:
       - retailerp-network
@@ -56,19 +59,20 @@ services:
     volumes:
       - ./database:/database
     restart: "no"
+    user: root
     entrypoint: /bin/bash
     command: >
       -c "
         SQLCMD=/opt/mssql-tools18/bin/sqlcmd;
-        [ -x \"$$SQLCMD\" ] || SQLCMD=/opt/mssql-tools/bin/sqlcmd;
-        echo 'Initializing database...';
-        $$SQLCMD -S sqlserver -U sa -P 'RetailERP@2024!' -C -Q \"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name='RetailERP') CREATE DATABASE RetailERP\" &&
+        echo 'Initializing RetailERP database...';
+        $$SQLCMD -S sqlserver -U sa -P 'RetailERP@2024!' -C -Q \"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name='RetailERP') CREATE DATABASE [RetailERP]\";
         for f in /database/schemas/*.sql /database/tables/*.sql /database/indexes/*.sql /database/stored-procedures/*.sql /database/seed-data/*.sql; do
           if [ -f \"$$f\" ]; then
-            echo \"Running $$f\";
-            $$SQLCMD -S sqlserver -U sa -P 'RetailERP@2024!' -C -d RetailERP -i \"$$f\" 2>&1 || true;
+            echo \"  Running $$f ...\";
+            $$SQLCMD -S sqlserver -U sa -P 'RetailERP@2024!' -C -d RetailERP -i \"$$f\";
+            echo \"  Done: $$f\";
           fi;
-        done &&
+        done;
         echo 'Database initialization complete!';
       "
 
@@ -285,11 +289,13 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:5000}"
     container_name: retailerp-frontend
     ports:
       - "3003:3000"
     environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:5000"
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:5000}"
     networks:
       - retailerp-network
     restart: unless-stopped

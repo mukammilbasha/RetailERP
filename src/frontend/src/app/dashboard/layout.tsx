@@ -12,6 +12,8 @@ import {
 import { Header } from "@/components/layout/header";
 import { LicenseBanner } from "@/components/layout/license-banner";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { ToastProvider } from "@/components/ui/toast";
+import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
 /* =============================================================
@@ -209,8 +211,12 @@ export default function DashboardLayout({
   }
 
   return (
-    <SidebarProvider>
-      <DashboardInner>{children}</DashboardInner>
-    </SidebarProvider>
+    <ToastProvider>
+      <ConfirmDialogProvider>
+        <SidebarProvider>
+          <DashboardInner>{children}</DashboardInner>
+        </SidebarProvider>
+      </ConfirmDialogProvider>
+    </ToastProvider>
   );
 }

@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import api, { type ApiResponse } from "@/lib/api";
-import { formatCurrency } from "@/lib/utils";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { Modal } from "@/components/ui/modal";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   ScanLine,
   Package,
@@ -11,67 +16,50 @@ import {
   Plus,
   Minus,
   Trash2,
-  Search,
   Volume2,
   VolumeX,
-  ShoppingCart,
   Save,
   X,
   Hash,
   ChevronDown,
+  FileText,
+  Truck,
+  Eye,
+  Edit2,
+  List,
 } from "lucide-react";
 
 /* ================================================================
    Types
    ================================================================ */
 
-interface Warehouse {
-  warehouseId: string;
-  warehouseName: string;
-}
-
-interface Client {
-  clientId: string;
-  clientName: string;
-  orgName?: string;
-}
-
-interface StoreInfo {
-  storeId: string;
-  storeCode: string;
-  storeName: string;
-}
-
+interface Warehouse { warehouseId: string; warehouseName: string; }
+interface Client { clientId: string; clientName: string; }
+interface StoreInfo { storeId: string; storeCode: string; storeName: string; }
 interface Article {
-  articleId: string;
-  articleCode: string;
-  articleName: string;
-  brandName: string;
-  color: string;
-  mrp: number;
-  hsnCode?: string;
-  imageUrl?: string;
+  articleId: string; articleCode: string; articleName: string;
+  brandName: string; color: string; mrp: number; hsnCode?: string;
 }
 
 interface ScannedLine {
-  id: string;
-  barcode: string;
-  articleId: string;
-  articleCode: string;
-  articleName: string;
-  color: string;
-  size: string;
-  mrp: number;
-  qty: number;
+  id: string; barcode: string; articleId: string; articleCode: string;
+  articleName: string; color: string; size: string; mrp: number; qty: number;
   hsnCode?: string;
-  imageUrl?: string;
 }
 
 interface SizeSummaryRow {
-  articleCode: string;
-  articleName: string;
-  sizes: Record<string, number>;
-  total: number;
+  articleCode: string; articleName: string;
+  sizes: Record<string, number>; total: number;
+}
+
+interface Order {
+  orderId: string; orderNo: string; orderDate: string;
+  clientId: string; clientName: string;
+  storeId: string; storeName: string;
+  warehouseId: string; warehouseName?: string;
+  totalLines: number; totalQuantity: number; totalAmount: number;
+  status: "Draft" | "Confirmed" | "Cancelled" | "Dispatched";
+  notes?: string;
 }
 
 /* ================================================================
@@ -79,8 +67,8 @@ interface SizeSummaryRow {
    ================================================================ */
 
 const SIZE_COLUMNS = ["39", "40", "41", "42", "43", "44", "45", "46"];
-
 const BARCODE_PATTERN = /^([A-Z0-9]+-?[A-Z0-9]+)-(\d{2,})$/i;
+const STATUS_OPTIONS = ["All", "Draft", "Confirmed", "Cancelled", "Dispatched"];
 
 /* ================================================================
    Helpers
@@ -90,58 +78,30 @@ function generateOrderNumber(): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
-  const seq = String(Math.floor(Math.random() * 9000) + 1000);
-  return `ORD-${y}${m}-${seq}`;
+  return `ORD-${y}${m}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
 }
 
 function parseBarcode(barcode: string): { code: string; size: string } | null {
   const trimmed = barcode.trim().toUpperCase();
   const match = trimmed.match(BARCODE_PATTERN);
-  if (match) {
-    return { code: match[1], size: match[2] };
-  }
-  // Fallback: try splitting by last hyphen
+  if (match) return { code: match[1], size: match[2] };
   const lastDash = trimmed.lastIndexOf("-");
   if (lastDash > 0) {
     const codePart = trimmed.slice(0, lastDash);
     const sizePart = trimmed.slice(lastDash + 1);
-    if (/^\d+$/.test(sizePart)) {
-      return { code: codePart, size: sizePart };
-    }
+    if (/^\d+$/.test(sizePart)) return { code: codePart, size: sizePart };
   }
   return null;
 }
 
 /* ================================================================
-   Flash Animation Component
+   Flash notification
    ================================================================ */
 
-function ScanFlash({
-  type,
-  message,
-  onDone,
-}: {
-  type: "success" | "error";
-  message: string;
-  onDone: () => void;
-}) {
-  useEffect(() => {
-    const timer = setTimeout(onDone, 1800);
-    return () => clearTimeout(timer);
-  }, [onDone]);
-
+function ScanFlash({ type, message, onDone }: { type: "success" | "error"; message: string; onDone: () => void; }) {
+  useEffect(() => { const t = setTimeout(onDone, 1800); return () => clearTimeout(t); }, [onDone]);
   return (
-    <div
-      className={`
-        fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl
-        animate-slideInRight
-        ${
-          type === "success"
-            ? "bg-emerald-500 text-white"
-            : "bg-red-500 text-white"
-        }
-      `}
-    >
+    <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl animate-slideInRight ${type === "success" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
       {type === "success" ? <Check size={20} /> : <AlertTriangle size={20} />}
       <span className="text-sm font-semibold">{message}</span>
     </div>
@@ -153,906 +113,816 @@ function ScanFlash({
    ================================================================ */
 
 export default function BarcodeScanEntryPage() {
+  const [mode, setMode] = useState<"list" | "scan">("list");
+
+  /* ---- List state ---- */
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [listLoading, setListLoading] = useState(false);
+
   /* ---- Reference data ---- */
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [stores, setStores] = useState<StoreInfo[]>([]);
 
-  /* ---- Order header ---- */
+  /* ---- Order header (scan mode) ---- */
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [orderNo] = useState(() => generateOrderNumber());
   const [clientId, setClientId] = useState("");
   const [storeId, setStoreId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
-  const [orderDate, setOrderDate] = useState(() =>
-    new Date().toISOString().split("T")[0]
-  );
+  const [orderDate, setOrderDate] = useState(() => new Date().toISOString().split("T")[0]);
 
   /* ---- Scan state ---- */
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scannedLines, setScannedLines] = useState<ScannedLine[]>([]);
   const [lastScannedId, setLastScannedId] = useState<string | null>(null);
-  const [flash, setFlash] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [flash, setFlash] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  /* ---- UI state ---- */
+  /* ---- Scan UI state ---- */
   const [saving, setSaving] = useState(false);
   const [confirmSaving, setConfirmSaving] = useState(false);
+
+  /* ---- View modal state ---- */
+  const [viewOrder, setViewOrder] = useState<any>(null);
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+
+  /* ---- Invoice modal state ---- */
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
+  const [invoiceDetail, setInvoiceDetail] = useState<any>(null);
+  const [invDate, setInvDate] = useState(new Date().toISOString().split("T")[0]);
+  const [invMarginPct, setInvMarginPct] = useState("0");
+  const [invPoNumber, setInvPoNumber] = useState("");
+  const [invPoDate, setInvPoDate] = useState("");
+  const [invIsInterState, setInvIsInterState] = useState(false);
+  const [invCartonBoxes, setInvCartonBoxes] = useState("1");
+  const [invLogistic, setInvLogistic] = useState("");
+  const [invTransportMode, setInvTransportMode] = useState("Road");
+  const [invVehicleNo, setInvVehicleNo] = useState("");
+  const [invNotes, setInvNotes] = useState("");
+  const [invCreating, setInvCreating] = useState(false);
 
   /* ---- Refs ---- */
   const barcodeRef = useRef<HTMLInputElement>(null);
   const successAudioRef = useRef<HTMLAudioElement | null>(null);
   const errorAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  /* ---- Initialize audio ---- */
+  const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirm();
+
+  const inputCls = "w-full px-3 py-2.5 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-card";
+
+  /* ---- Init audio ---- */
   useEffect(() => {
     if (typeof window !== "undefined") {
-      successAudioRef.current = new Audio(
-        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
-      );
-      errorAudioRef.current = new Audio(
-        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
-      );
+      successAudioRef.current = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+      errorAudioRef.current = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
     }
   }, []);
+
+  /* ---- Fetch orders list ---- */
+  const fetchOrders = useCallback(async () => {
+    setListLoading(true);
+    try {
+      const { data } = await api.get<ApiResponse<any>>("/api/orders", {
+        params: { search: search || undefined, status: statusFilter !== "All" ? statusFilter : undefined, page, pageSize: 25 },
+      });
+      if (data.success) {
+        setOrders(data.data?.items || data.data || []);
+        setTotalCount(data.data?.totalCount || 0);
+      }
+    } catch { setOrders([]); }
+    finally { setListLoading(false); }
+  }, [page, search, statusFilter]);
 
   /* ---- Fetch reference data ---- */
   const fetchReferenceData = useCallback(async () => {
     try {
       const [whRes, clientRes] = await Promise.all([
-        api.get<ApiResponse<any>>("/api/warehouses", {
-          params: { pageSize: 200 },
-        }),
-        api.get<ApiResponse<any>>("/api/clients", {
-          params: { pageSize: 200 },
-        }),
+        api.get<ApiResponse<any>>("/api/warehouses", { params: { pageSize: 200 } }),
+        api.get<ApiResponse<any>>("/api/clients", { params: { pageSize: 200 } }),
       ]);
-      if (whRes.data.success)
-        setWarehouses(whRes.data.data?.items || []);
-      if (clientRes.data.success)
-        setClients(clientRes.data.data?.items || []);
-    } catch {
-      // Silently fail — reference data will be empty
-    }
+      if (whRes.data.success) setWarehouses(whRes.data.data?.items || []);
+      if (clientRes.data.success) setClients(clientRes.data.data?.items || []);
+    } catch { /* silent */ }
   }, []);
 
-  useEffect(() => {
-    fetchReferenceData();
-  }, [fetchReferenceData]);
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => { fetchReferenceData(); }, [fetchReferenceData]);
 
   /* ---- Fetch stores when client changes ---- */
   useEffect(() => {
-    if (!clientId) {
-      setStores([]);
-      setStoreId("");
-      return;
-    }
-    const fetchStores = async () => {
-      try {
-        const res = await api.get<ApiResponse<any>>(
-          `/api/clients/${clientId}/stores`,
-          { params: { pageSize: 200 } }
-        );
-        if (res.data.success) {
-          setStores(res.data.data?.items || res.data.data || []);
-        }
-      } catch {
-        setStores([]);
-      }
-    };
-    fetchStores();
+    if (!clientId) { setStores([]); setStoreId(""); return; }
+    api.get<ApiResponse<any>>(`/api/clients/${clientId}/stores`, { params: { pageSize: 200 } })
+      .then((res) => { if (res.data.success) setStores(res.data.data?.items || res.data.data || []); })
+      .catch(() => setStores([]));
     setStoreId("");
   }, [clientId]);
 
-  /* ---- Auto-focus barcode input ---- */
+  /* ---- Auto-focus barcode input when in scan mode ---- */
   useEffect(() => {
-    barcodeRef.current?.focus();
-  }, []);
+    if (mode === "scan") setTimeout(() => barcodeRef.current?.focus(), 100);
+  }, [mode]);
 
-  /* ---- Play sound ---- */
-  const playSound = useCallback(
-    (type: "success" | "error") => {
-      if (!soundEnabled) return;
-      try {
-        const audio = type === "success" ? successAudioRef.current : errorAudioRef.current;
-        if (audio) {
-          audio.currentTime = 0;
-          audio.play().catch(() => {});
-        }
-      } catch {
-        // Audio play failed silently
-      }
-    },
-    [soundEnabled]
-  );
+  /* ---- Sound & flash ---- */
+  const playSound = useCallback((type: "success" | "error") => {
+    if (!soundEnabled) return;
+    try {
+      const audio = type === "success" ? successAudioRef.current : errorAudioRef.current;
+      if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
+    } catch { /* silent */ }
+  }, [soundEnabled]);
 
-  /* ---- Show flash notification ---- */
-  const showFlash = useCallback(
-    (type: "success" | "error", message: string) => {
-      setFlash({ type, message });
-      playSound(type);
-    },
-    [playSound]
-  );
+  const showFlash = useCallback((type: "success" | "error", message: string) => {
+    setFlash({ type, message }); playSound(type);
+  }, [playSound]);
 
   /* ---- Handle barcode scan ---- */
-  const handleBarcodeScan = useCallback(
-    async (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Escape") {
-        setBarcodeInput("");
-        return;
-      }
-      if (e.key !== "Enter" || !barcodeInput.trim()) return;
+  const handleBarcodeScan = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") { setBarcodeInput(""); return; }
+    if (e.key !== "Enter" || !barcodeInput.trim()) return;
 
-      const rawBarcode = barcodeInput.trim();
-      const parsed = parseBarcode(rawBarcode);
+    const rawBarcode = barcodeInput.trim();
+    const parsed = parseBarcode(rawBarcode);
+    if (!parsed) {
+      showFlash("error", `Invalid barcode format: ${rawBarcode}`);
+      setBarcodeInput(""); barcodeRef.current?.focus(); return;
+    }
 
-      if (!parsed) {
-        showFlash("error", `Invalid barcode format: ${rawBarcode}`);
-        setBarcodeInput("");
-        barcodeRef.current?.focus();
-        return;
-      }
+    const existingIndex = scannedLines.findIndex(
+      (l) => l.articleCode.toUpperCase() === parsed.code.toUpperCase() && l.size === parsed.size
+    );
+    if (existingIndex >= 0) {
+      setScannedLines((prev) => {
+        const updated = [...prev];
+        updated[existingIndex] = { ...updated[existingIndex], qty: updated[existingIndex].qty + 1 };
+        return updated;
+      });
+      setLastScannedId(scannedLines[existingIndex].id);
+      showFlash("success", `+1 ${parsed.code} Size ${parsed.size} (Qty: ${scannedLines[existingIndex].qty + 1})`);
+      setBarcodeInput(""); barcodeRef.current?.focus(); return;
+    }
 
-      // Check if this exact barcode+size already exists
-      const existingIndex = scannedLines.findIndex(
-        (line) =>
-          line.articleCode.toUpperCase() === parsed.code.toUpperCase() &&
-          line.size === parsed.size
-      );
-
-      if (existingIndex >= 0) {
-        // Increment quantity
-        setScannedLines((prev) => {
-          const updated = [...prev];
-          updated[existingIndex] = {
-            ...updated[existingIndex],
-            qty: updated[existingIndex].qty + 1,
-          };
-          return updated;
-        });
-        setLastScannedId(scannedLines[existingIndex].id);
-        showFlash(
-          "success",
-          `+1 ${parsed.code} Size ${parsed.size} (Qty: ${scannedLines[existingIndex].qty + 1})`
+    try {
+      const res = await api.get<ApiResponse<any>>("/api/articles", { params: { searchTerm: parsed.code, pageSize: 10 } });
+      let article: Article | null = null;
+      if (res.data.success) {
+        const items = res.data.data?.items || [];
+        article = items.find((a: any) =>
+          a.articleCode?.toUpperCase() === parsed.code.toUpperCase() ||
+          a.articleCode?.replace(/-/g, "").toUpperCase() === parsed.code.replace(/-/g, "").toUpperCase()
         );
-        setBarcodeInput("");
-        barcodeRef.current?.focus();
-        return;
       }
-
-      // Try to look up article from API
-      try {
-        const res = await api.get<ApiResponse<any>>("/api/articles", {
-          params: { searchTerm: parsed.code, pageSize: 10 },
-        });
-
-        let article: Article | null = null;
-
-        if (res.data.success) {
-          const items = res.data.data?.items || [];
-          article = items.find(
-            (a: any) =>
-              a.articleCode?.toUpperCase() === parsed.code.toUpperCase() ||
-              a.articleCode
-                ?.replace(/-/g, "")
-                .toUpperCase() === parsed.code.replace(/-/g, "").toUpperCase()
-          );
-        }
-
-        if (!article) {
-          // Create a placeholder article from the barcode
-          article = {
-            articleId: `scan-${Date.now()}`,
-            articleCode: parsed.code,
-            articleName: parsed.code,
-            brandName: "",
-            color: "",
-            mrp: 0,
-            hsnCode: "",
-          };
-        }
-
-        const newLine: ScannedLine = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          barcode: rawBarcode,
-          articleId: article.articleId,
-          articleCode: article.articleCode,
-          articleName: article.articleName,
-          color: article.color || "",
-          size: parsed.size,
-          mrp: article.mrp || 0,
-          qty: 1,
-          hsnCode: article.hsnCode || "",
-          imageUrl: article.imageUrl || "",
-        };
-
-        setScannedLines((prev) => [...prev, newLine]);
-        setLastScannedId(newLine.id);
-        showFlash("success", `Added ${article.articleCode} Size ${parsed.size}`);
-      } catch {
-        showFlash("error", `Failed to look up article: ${parsed.code}`);
+      if (!article) {
+        article = { articleId: `scan-${Date.now()}`, articleCode: parsed.code, articleName: parsed.code, brandName: "", color: "", mrp: 0 };
       }
+      const newLine: ScannedLine = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        barcode: rawBarcode, articleId: article.articleId, articleCode: article.articleCode,
+        articleName: article.articleName, color: article.color || "", size: parsed.size,
+        mrp: article.mrp || 0, qty: 1, hsnCode: article.hsnCode || "",
+      };
+      setScannedLines((prev) => [...prev, newLine]);
+      setLastScannedId(newLine.id);
+      showFlash("success", `Added ${article.articleCode} Size ${parsed.size}`);
+    } catch {
+      showFlash("error", `Failed to look up article: ${parsed.code}`);
+    }
+    setBarcodeInput(""); barcodeRef.current?.focus();
+  }, [barcodeInput, scannedLines, showFlash]);
 
-      setBarcodeInput("");
-      barcodeRef.current?.focus();
-    },
-    [barcodeInput, scannedLines, showFlash]
-  );
+  const adjustQty = useCallback((lineId: string, delta: number) => {
+    setScannedLines((prev) => prev.map((l) => l.id !== lineId ? l : { ...l, qty: Math.max(1, l.qty + delta) }));
+  }, []);
 
-  /* ---- Quantity adjustment ---- */
-  const adjustQty = useCallback(
-    (lineId: string, delta: number) => {
-      setScannedLines((prev) =>
-        prev.map((line) => {
-          if (line.id !== lineId) return line;
-          const newQty = Math.max(1, line.qty + delta);
-          return { ...line, qty: newQty };
-        })
-      );
-    },
-    []
-  );
-
-  /* ---- Remove line ---- */
   const removeLine = useCallback((lineId: string) => {
     setScannedLines((prev) => prev.filter((l) => l.id !== lineId));
   }, []);
 
-  /* ---- Computed: grouped by article ---- */
+  /* ---- Computed ---- */
   const groupedLines = useMemo(() => {
-    const groups: Record<
-      string,
-      { articleCode: string; articleName: string; hsnCode: string; imageUrl: string; mrp: number; lines: ScannedLine[] }
-    > = {};
-
+    const groups: Record<string, { articleCode: string; articleName: string; hsnCode: string; mrp: number; lines: ScannedLine[] }> = {};
     scannedLines.forEach((line) => {
-      const key = line.articleCode;
-      if (!groups[key]) {
-        groups[key] = {
-          articleCode: line.articleCode,
-          articleName: line.articleName,
-          hsnCode: line.hsnCode || "",
-          imageUrl: line.imageUrl || "",
-          mrp: line.mrp,
-          lines: [],
-        };
-      }
-      groups[key].lines.push(line);
+      if (!groups[line.articleCode]) groups[line.articleCode] = { articleCode: line.articleCode, articleName: line.articleName, hsnCode: line.hsnCode || "", mrp: line.mrp, lines: [] };
+      groups[line.articleCode].lines.push(line);
     });
-
     return Object.values(groups);
   }, [scannedLines]);
 
-  /* ---- Computed: size summary ---- */
   const sizeSummary: SizeSummaryRow[] = useMemo(() => {
     const map: Record<string, SizeSummaryRow> = {};
-
     scannedLines.forEach((line) => {
-      if (!map[line.articleCode]) {
-        map[line.articleCode] = {
-          articleCode: line.articleCode,
-          articleName: line.articleName,
-          sizes: {},
-          total: 0,
-        };
-      }
+      if (!map[line.articleCode]) map[line.articleCode] = { articleCode: line.articleCode, articleName: line.articleName, sizes: {}, total: 0 };
       const row = map[line.articleCode];
-      const sizeKey = line.size;
-      row.sizes[sizeKey] = (row.sizes[sizeKey] || 0) + line.qty;
+      row.sizes[line.size] = (row.sizes[line.size] || 0) + line.qty;
       row.total += line.qty;
     });
-
     return Object.values(map);
   }, [scannedLines]);
 
-  /* ---- Computed: totals ---- */
-  const totalItems = scannedLines.length;
-  const totalPairs = useMemo(
-    () => scannedLines.reduce((sum, l) => sum + l.qty, 0),
-    [scannedLines]
-  );
-  const totalValue = useMemo(
-    () => scannedLines.reduce((sum, l) => sum + l.mrp * l.qty, 0),
-    [scannedLines]
-  );
+  const totalPairs = useMemo(() => scannedLines.reduce((s, l) => s + l.qty, 0), [scannedLines]);
+  const totalValue = useMemo(() => scannedLines.reduce((s, l) => s + l.mrp * l.qty, 0), [scannedLines]);
 
-  /* ---- Save / Confirm ---- */
-  const buildOrderPayload = useCallback(
-    (status: string) => ({
-      orderNumber: orderNo,
-      clientId,
-      storeId,
-      warehouseId,
-      orderDate,
-      status,
-      lines: scannedLines.map((line) => ({
-        articleId: line.articleId,
-        articleCode: line.articleCode,
-        size: line.size,
-        quantity: line.qty,
-        mrp: line.mrp,
-        amount: line.mrp * line.qty,
-      })),
-      totalPairs,
-      totalValue,
-    }),
-    [orderNo, clientId, storeId, warehouseId, orderDate, scannedLines, totalPairs, totalValue]
-  );
+  /* ---- Build order payload (matching backend CreateSizeWiseOrderRequest) ---- */
+  const buildOrderPayload = useCallback(() => {
+    const articleMap: Record<string, { articleId: string; articleCode: string; articleName: string; color: string; hsnCode: string; mrp: number; sizeQuantities: { euroSize: number; quantity: number }[] }> = {};
+    scannedLines.forEach((line) => {
+      if (!articleMap[line.articleCode]) {
+        articleMap[line.articleCode] = {
+          articleId: line.articleId, articleCode: line.articleCode, articleName: line.articleName,
+          color: line.color, hsnCode: line.hsnCode || "", mrp: line.mrp, sizeQuantities: [],
+        };
+      }
+      const euroSize = parseInt(line.size);
+      if (!isNaN(euroSize)) {
+        const existing = articleMap[line.articleCode].sizeQuantities.find((s) => s.euroSize === euroSize);
+        if (existing) existing.quantity += line.qty;
+        else articleMap[line.articleCode].sizeQuantities.push({ euroSize, quantity: line.qty });
+      }
+    });
+    return { clientId, storeId, warehouseId, orderDate, articles: Object.values(articleMap) };
+  }, [clientId, storeId, warehouseId, orderDate, scannedLines]);
 
+  /* ---- Save as Draft ---- */
   const handleSaveDraft = async () => {
-    if (scannedLines.length === 0) {
-      showFlash("error", "No items scanned. Scan at least one barcode.");
-      return;
-    }
+    if (!clientId) { showFlash("error", "Please select a Client."); return; }
+    if (scannedLines.length === 0) { showFlash("error", "No items scanned."); return; }
     setSaving(true);
     try {
-      await api.post("/api/orders", buildOrderPayload("DRAFT"));
-      showFlash("success", "Order saved as draft successfully.");
+      if (editingOrderId) {
+        await api.put(`/api/orders/${editingOrderId}`, buildOrderPayload());
+      } else {
+        await api.post("/api/orders", buildOrderPayload());
+      }
+      showFlash("success", "Order saved as draft.");
+      resetScanForm(); setMode("list"); fetchOrders();
     } catch (err: any) {
       showFlash("error", err.response?.data?.message || "Failed to save draft.");
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
+  /* ---- Confirm Order ---- */
   const handleConfirmOrder = async () => {
-    if (scannedLines.length === 0) {
-      showFlash("error", "No items scanned. Scan at least one barcode.");
-      return;
-    }
+    if (!clientId) { showFlash("error", "Please select a Client."); return; }
+    if (scannedLines.length === 0) { showFlash("error", "No items scanned."); return; }
     setConfirmSaving(true);
     try {
-      await api.post("/api/orders", buildOrderPayload("CONFIRMED"));
-      showFlash("success", "Order confirmed successfully.");
+      let orderId = editingOrderId;
+      if (!orderId) {
+        const { data } = await api.post<ApiResponse<any>>("/api/orders", buildOrderPayload());
+        if (data.success && data.data) orderId = data.data.orderId || data.data.id;
+        else throw new Error(data.message || "Failed to create order");
+      } else {
+        await api.put(`/api/orders/${orderId}`, buildOrderPayload());
+      }
+      await api.put(`/api/orders/${orderId}/confirm`);
+      showFlash("success", "Order confirmed!");
+      resetScanForm(); setMode("list"); fetchOrders();
     } catch (err: any) {
       showFlash("error", err.response?.data?.message || "Failed to confirm order.");
-    } finally {
-      setConfirmSaving(false);
-    }
+    } finally { setConfirmSaving(false); }
   };
 
-  /* ---- Styles ---- */
-  const inputCls =
-    "w-full px-3 py-2.5 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-card";
-  const labelCls =
-    "block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider";
+  const resetScanForm = useCallback(() => {
+    setScannedLines([]); setClientId(""); setStoreId(""); setWarehouseId("");
+    setOrderDate(new Date().toISOString().split("T")[0]); setEditingOrderId(null);
+  }, []);
+
+  /* ---- List actions ---- */
+  const handleViewOrder = async (order: Order) => {
+    try {
+      const { data } = await api.get<ApiResponse<any>>(`/api/orders/${order.orderId}`);
+      setViewOrder(data.success ? data.data : order);
+    } catch { setViewOrder(order); }
+    setViewModalOpen(true);
+  };
+
+  const handleEditDraft = async (order: Order) => {
+    try {
+      const { data } = await api.get<ApiResponse<any>>(`/api/orders/${order.orderId}`);
+      if (data.success && data.data) {
+        const detail = data.data;
+        setClientId(detail.clientId || "");
+        setStoreId(detail.storeId || "");
+        setWarehouseId(detail.warehouseId || "");
+        setOrderDate(detail.orderDate ? new Date(detail.orderDate).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]);
+        setEditingOrderId(order.orderId);
+        // Rebuild scanned lines from order articles
+        const lines: ScannedLine[] = [];
+        const articles = detail.articles || detail.lines || [];
+        articles.forEach((a: any) => {
+          const sizes = a.sizeQuantities || a.sizes || a.sizeRuns || [];
+          sizes.forEach((s: any) => {
+            const qty = s.quantity || s.qty || s.orderQty || 0;
+            const euroSize = String(s.euroSize || s.size || "");
+            if (qty > 0 && euroSize) {
+              lines.push({
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                barcode: `${a.articleCode || ""}-${euroSize}`,
+                articleId: a.articleId, articleCode: a.articleCode || "", articleName: a.articleName || "",
+                color: a.color || a.colour || "", size: euroSize, mrp: a.mrp || 0, qty,
+                hsnCode: a.hsnCode || "",
+              });
+            }
+          });
+        });
+        setScannedLines(lines);
+      }
+    } catch { /* use empty */ }
+    setMode("scan");
+  };
+
+  const handleDeleteOrder = async (order: Order) => {
+    if (order.status !== "Draft") { showToast("error", "Cannot Delete", "Only Draft orders can be deleted."); return; }
+    const ok = await confirmDialog({ title: "Delete Order", message: `Delete order "${order.orderNo}"? This cannot be undone.`, confirmLabel: "Delete", variant: "danger" });
+    if (!ok) return;
+    try {
+      await api.delete(`/api/orders/${order.orderId}`);
+      showToast("success", "Deleted", `"${order.orderNo}" removed.`);
+      fetchOrders();
+    } catch (err: any) { showToast("error", "Failed", err.response?.data?.message || "Error."); }
+  };
+
+  const handleConfirmFromList = async (order: Order) => {
+    const ok = await confirmDialog({ title: "Confirm Order", message: `Confirm "${order.orderNo}"? Stock will be deducted.`, confirmLabel: "Confirm", variant: "danger" });
+    if (!ok) return;
+    try {
+      await api.put(`/api/orders/${order.orderId}/confirm`);
+      showToast("success", "Confirmed", `"${order.orderNo}" confirmed.`);
+      fetchOrders();
+    } catch (err: any) { showToast("error", "Failed", err.response?.data?.message || "Error."); }
+  };
+
+  const handleCancelFromList = async (order: Order) => {
+    const ok = await confirmDialog({ title: "Cancel Order", message: `Cancel "${order.orderNo}"? This cannot be undone.`, confirmLabel: "Cancel Order", variant: "danger" });
+    if (!ok) return;
+    try {
+      await api.put(`/api/orders/${order.orderId}/cancel`);
+      showToast("success", "Cancelled", `"${order.orderNo}" cancelled.`);
+      fetchOrders();
+    } catch (err: any) { showToast("error", "Failed", err.response?.data?.message || "Error."); }
+  };
+
+  const handleDispatchFromList = async (order: Order) => {
+    const ok = await confirmDialog({ title: "Dispatch Order", message: `Dispatch "${order.orderNo}"?`, confirmLabel: "Dispatch", variant: "danger" });
+    if (!ok) return;
+    try {
+      await api.put(`/api/orders/${order.orderId}/dispatch`);
+      showToast("success", "Dispatched", `"${order.orderNo}" dispatched.`);
+      fetchOrders();
+    } catch (err: any) { showToast("error", "Failed", err.response?.data?.message || "Error."); }
+  };
+
+  /* ---- Invoice modal ---- */
+  const openInvoiceModal = async (order: Order) => {
+    setInvoiceOrder(order); setInvDate(new Date().toISOString().split("T")[0]);
+    setInvMarginPct("0"); setInvPoNumber(""); setInvPoDate(""); setInvIsInterState(false);
+    setInvCartonBoxes("1"); setInvLogistic(""); setInvTransportMode("Road"); setInvVehicleNo(""); setInvNotes("");
+    setInvoiceDetail(null);
+    try {
+      const { data } = await api.get<ApiResponse<any>>(`/api/orders/${order.orderId}`);
+      if (data.success) setInvoiceDetail(data.data);
+    } catch { /* silent */ }
+    setInvoiceModalOpen(true);
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!invoiceOrder) return;
+    setInvCreating(true);
+    try {
+      const detail = invoiceDetail;
+      const marginPct = parseFloat(invMarginPct) || 0;
+      const articles = detail?.articles || detail?.lines || [];
+      const lines = articles.map((a: any) => {
+        const sizeBreakdown: Record<string, number> = {};
+        const sizes = a.sizeQuantities || a.sizes || a.sizeRuns || [];
+        sizes.forEach((s: any) => {
+          const euroSize = s.euroSize || s.size;
+          const qty = s.quantity || s.qty || s.orderQty || 0;
+          if (euroSize && qty) sizeBreakdown[String(euroSize)] = qty;
+        });
+        return {
+          articleId: a.articleId, sku: a.articleCode || "", articleName: a.articleName || "",
+          description: a.articleName || "", hsnCode: a.hsnCode || "", color: a.color || a.colour || "",
+          mrp: a.mrp || 0, quantity: a.quantity || a.totalQuantity || 0,
+          marginPercent: marginPct, sizeBreakdownJson: JSON.stringify(sizeBreakdown), uom: "Pairs",
+        };
+      });
+      await api.post("/api/invoices", {
+        orderId: invoiceOrder.orderId, orderNumber: invoiceOrder.orderNo,
+        clientId: invoiceOrder.clientId, storeId: invoiceOrder.storeId,
+        invoiceDate: invDate, isInterState: invIsInterState,
+        poNumber: invPoNumber || undefined, poDate: invPoDate || undefined,
+        cartonBoxes: parseInt(invCartonBoxes) || 1,
+        logistic: invLogistic || undefined, transportMode: invTransportMode || undefined,
+        vehicleNo: invVehicleNo || undefined, notes: invNotes || undefined, lines,
+      });
+      showToast("success", "Invoice Created", `Invoice for ${invoiceOrder.orderNo} created.`);
+      setInvoiceModalOpen(false); fetchOrders();
+    } catch (err: any) {
+      showToast("error", "Failed", err.response?.data?.message || "Error creating invoice.");
+    } finally { setInvCreating(false); }
+  };
+
+  /* ================================================================
+     TABLE COLUMNS
+     ================================================================ */
+
+  const columns: Column<Order>[] = [
+    { key: "orderNo", header: "Order No", className: "font-mono text-xs font-medium whitespace-nowrap" },
+    { key: "orderDate", header: "Date", render: (o) => formatDate(o.orderDate) },
+    { key: "clientName", header: "Client" },
+    { key: "storeName", header: "Store" },
+    { key: "totalQuantity", header: "Pairs", className: "text-center font-medium" },
+    {
+      key: "totalAmount", header: "Amount",
+      render: (o) => formatCurrency(o.totalAmount), className: "text-right font-medium",
+    },
+    {
+      key: "status", header: "Status",
+      render: (o) => <StatusBadge status={o.status.toUpperCase()} />,
+    },
+    {
+      key: "actions", header: "Actions",
+      render: (o) => (
+        <div className="flex items-center gap-1">
+          <button onClick={(e) => { e.stopPropagation(); handleViewOrder(o); }} className="p-1.5 rounded hover:bg-muted" title="View">
+            <Eye size={14} className="text-muted-foreground" />
+          </button>
+          {o.status === "Draft" && (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); handleEditDraft(o); }} className="p-1.5 rounded hover:bg-muted" title="Edit & Scan More">
+                <Edit2 size={14} className="text-primary" />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); handleConfirmFromList(o); }} className="p-1.5 rounded hover:bg-green-50" title="Confirm">
+                <Check size={14} className="text-green-600" />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o); }} className="p-1.5 rounded hover:bg-destructive/10" title="Delete">
+                <Trash2 size={14} className="text-destructive" />
+              </button>
+            </>
+          )}
+          {o.status === "Confirmed" && (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); handleDispatchFromList(o); }} className="p-1.5 rounded hover:bg-blue-50" title="Dispatch">
+                <Truck size={14} className="text-blue-600" />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); openInvoiceModal(o); }} className="p-1.5 rounded hover:bg-emerald-50" title="Generate Invoice">
+                <FileText size={14} className="text-emerald-600" />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); handleCancelFromList(o); }} className="p-1.5 rounded hover:bg-red-50" title="Cancel">
+                <X size={14} className="text-red-600" />
+              </button>
+            </>
+          )}
+          {o.status === "Dispatched" && (
+            <button onClick={(e) => { e.stopPropagation(); openInvoiceModal(o); }} className="p-1.5 rounded hover:bg-emerald-50" title="Generate Invoice">
+              <FileText size={14} className="text-emerald-600" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  /* ================================================================
+     RENDER
+     ================================================================ */
+
+  if (mode === "list") {
+    return (
+      <>
+        {/* Status filter tabs */}
+        <div className="flex items-center gap-2 mb-4">
+          {STATUS_OPTIONS.map((s) => (
+            <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${statusFilter === s ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:bg-muted"}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <DataTable
+          title="Barcode Scan Orders"
+          subtitle="Orders created via barcode scanning"
+          columns={columns}
+          data={orders}
+          totalCount={totalCount}
+          pageNumber={page}
+          pageSize={25}
+          onPageChange={setPage}
+          onSearch={setSearch}
+          onAdd={() => { resetScanForm(); setMode("scan"); }}
+          onEdit={(o) => { if (o.status === "Draft") handleEditDraft(o); else handleViewOrder(o); }}
+          onDelete={handleDeleteOrder}
+          addLabel="New Scan"
+          loading={listLoading}
+          keyExtractor={(o) => o.orderId}
+        />
+
+        {/* View Order Modal */}
+        <Modal isOpen={viewModalOpen} onClose={() => setViewModalOpen(false)} title="Order Details" size="lg">
+          {viewOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-muted-foreground">Order No:</span> <strong>{viewOrder.orderNo}</strong></div>
+                <div><span className="text-muted-foreground">Date:</span> {formatDate(viewOrder.orderDate)}</div>
+                <div><span className="text-muted-foreground">Client:</span> {viewOrder.clientName}</div>
+                <div><span className="text-muted-foreground">Store:</span> {viewOrder.storeName}</div>
+                <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={(viewOrder.status || "").toUpperCase()} /></div>
+                <div><span className="text-muted-foreground">Total Qty:</span> <strong>{viewOrder.totalQuantity}</strong></div>
+              </div>
+              {(viewOrder.articles || viewOrder.lines || []).length > 0 && (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Article</th>
+                        <th className="px-3 py-2 text-center">Sizes</th>
+                        <th className="px-3 py-2 text-right">Qty</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(viewOrder.articles || viewOrder.lines || []).map((a: any, i: number) => (
+                        <tr key={i} className="border-t">
+                          <td className="px-3 py-2 font-medium">{a.articleCode || a.sku} — {a.articleName}</td>
+                          <td className="px-3 py-2 text-center text-muted-foreground">
+                            {(a.sizeQuantities || a.sizes || []).map((s: any) => `${s.euroSize || s.size}×${s.quantity || s.qty}`).join(", ")}
+                          </td>
+                          <td className="px-3 py-2 text-right">{a.quantity || a.totalQuantity || 0}</td>
+                          <td className="px-3 py-2 text-right">{formatCurrency((a.quantity || a.totalQuantity || 0) * (a.mrp || 0))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <button onClick={() => setViewModalOpen(false)} className="px-4 py-2 text-sm border rounded-lg hover:bg-muted">Close</button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        {/* Invoice Modal */}
+        <Modal isOpen={invoiceModalOpen} onClose={() => setInvoiceModalOpen(false)} title="Generate Invoice" size="lg">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+              <FileText size={16} />
+              <span>Invoice for order <strong>{invoiceOrder?.orderNo}</strong> — {invoiceOrder?.clientName}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Invoice Date *</label>
+                <input type="date" value={invDate} onChange={(e) => setInvDate(e.target.value)} className={inputCls} /></div>
+              <div><label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Margin %</label>
+                <input type="number" min="0" max="100" step="0.01" value={invMarginPct} onChange={(e) => setInvMarginPct(e.target.value)} className={inputCls} /></div>
+              <div><label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">PO Number</label>
+                <input type="text" value={invPoNumber} onChange={(e) => setInvPoNumber(e.target.value)} placeholder="Purchase Order No" className={inputCls} /></div>
+              <div><label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">PO Date</label>
+                <input type="date" value={invPoDate} onChange={(e) => setInvPoDate(e.target.value)} className={inputCls} /></div>
+              <div><label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Carton Boxes</label>
+                <input type="number" min="1" value={invCartonBoxes} onChange={(e) => setInvCartonBoxes(e.target.value)} className={inputCls} /></div>
+              <div><label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Transport Mode</label>
+                <select value={invTransportMode} onChange={(e) => setInvTransportMode(e.target.value)} className={inputCls}>
+                  <option>Road</option><option>Rail</option><option>Air</option><option>Ship</option><option>Courier</option>
+                </select></div>
+              <div><label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Logistic Partner</label>
+                <input type="text" value={invLogistic} onChange={(e) => setInvLogistic(e.target.value)} placeholder="Courier / Transporter" className={inputCls} /></div>
+              <div><label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Vehicle / LR No</label>
+                <input type="text" value={invVehicleNo} onChange={(e) => setInvVehicleNo(e.target.value)} className={inputCls} /></div>
+            </div>
+            <div className="flex items-center gap-3 p-3 border rounded-lg">
+              <input type="checkbox" id="invInterState2" checked={invIsInterState} onChange={(e) => setInvIsInterState(e.target.checked)} className="w-4 h-4 accent-primary" />
+              <label htmlFor="invInterState2" className="text-sm font-medium cursor-pointer">Inter-State Supply (IGST)</label>
+            </div>
+            <div><label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Notes</label>
+              <input type="text" value={invNotes} onChange={(e) => setInvNotes(e.target.value)} placeholder="Additional notes..." className={inputCls} /></div>
+            <div className="flex justify-end gap-3 pt-2 border-t">
+              <button onClick={() => setInvoiceModalOpen(false)} className="px-4 py-2 text-sm border rounded-lg hover:bg-muted">Cancel</button>
+              <button onClick={handleCreateInvoice} disabled={invCreating || !invDate}
+                className="flex items-center gap-1.5 px-6 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold disabled:opacity-50">
+                <FileText size={14} />{invCreating ? "Creating..." : "Create Invoice"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      </>
+    );
+  }
+
+  /* ============================================================
+     SCAN MODE
+     ============================================================ */
+
+  const labelCls = "block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider";
 
   return (
     <div className="space-y-5">
-      {/* Flash notification */}
-      {flash && (
-        <ScanFlash
-          type={flash.type}
-          message={flash.message}
-          onDone={() => setFlash(null)}
-        />
-      )}
+      {flash && <ScanFlash type={flash.type} message={flash.message} onDone={() => setFlash(null)} />}
 
-      {/* ===== Page Header ===== */}
+      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2">
             <ScanLine size={22} className="text-primary" />
             Barcode Scan Entry
+            {editingOrderId && <span className="text-sm font-normal text-muted-foreground ml-2">— Editing draft</span>}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Scan barcodes to create orders instantly
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">Scan barcodes to create orders instantly</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Sound toggle */}
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg transition-colors ${
-              soundEnabled
-                ? "bg-primary/10 border-primary/30 text-primary"
-                : "hover:bg-muted"
-            }`}
-            title={soundEnabled ? "Sound on" : "Sound off"}
-          >
-            {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
-            {soundEnabled ? "Sound On" : "Sound Off"}
+          <button onClick={() => setSoundEnabled(!soundEnabled)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg transition-colors ${soundEnabled ? "bg-primary/10 border-primary/30 text-primary" : "hover:bg-muted"}`}>
+            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            Sound {soundEnabled ? "On" : "Off"}
           </button>
-
-          <button
-            onClick={handleSaveDraft}
-            disabled={saving || scannedLines.length === 0}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm border rounded-lg hover:bg-muted transition-colors font-medium disabled:opacity-50"
-          >
-            <Save size={14} />
-            {saving ? "Saving..." : "Save as Draft"}
+          <button onClick={() => { resetScanForm(); setMode("list"); }}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg hover:bg-muted">
+            <List size={16} /> Back to List
           </button>
-          <button
-            onClick={handleConfirmOrder}
-            disabled={confirmSaving || scannedLines.length === 0}
-            className="flex items-center gap-1.5 px-5 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold disabled:opacity-50 shadow-sm"
-          >
-            <ShoppingCart size={14} />
-            {confirmSaving ? "Confirming..." : "Confirm Order"}
+          <button onClick={handleSaveDraft} disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm border rounded-lg hover:bg-muted font-medium disabled:opacity-50">
+            <Save size={16} />{saving ? "Saving..." : "Save as Draft"}
+          </button>
+          <button onClick={handleConfirmOrder} disabled={confirmSaving}
+            className="flex items-center gap-1.5 px-5 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-semibold disabled:opacity-50">
+            <Hash size={16} />{confirmSaving ? "Confirming..." : "Confirm Order"}
           </button>
         </div>
       </div>
 
-      {/* ===== Order Header ===== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-5 bg-card border rounded-xl shadow-sm">
-        {/* Order No */}
+      {/* Order Header Form */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-muted/20 border rounded-xl">
         <div>
-          <label className={labelCls}>Order No</label>
-          <input
-            type="text"
-            value={orderNo}
-            readOnly
-            className={`${inputCls} bg-muted/50 cursor-not-allowed font-mono font-semibold`}
-          />
+          <label className={labelCls}>ORDER NO</label>
+          <input type="text" value={editingOrderId ? "Editing Draft" : orderNo} readOnly className={`${inputCls} bg-muted/40`} />
         </div>
-
-        {/* Client */}
         <div>
-          <label className={labelCls}>Client *</label>
-          <select
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            className={inputCls}
-          >
+          <label className={labelCls}>CLIENT *</label>
+          <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={inputCls}>
             <option value="">Select Client</option>
-            {clients.map((c) => (
-              <option key={c.clientId} value={c.clientId}>
-                {c.orgName || c.clientName}
-              </option>
-            ))}
+            {clients.map((c) => <option key={c.clientId} value={c.clientId}>{c.clientName}</option>)}
           </select>
         </div>
-
-        {/* Store */}
         <div>
-          <label className={labelCls}>Store</label>
-          <select
-            value={storeId}
-            onChange={(e) => setStoreId(e.target.value)}
-            className={inputCls}
-            disabled={!clientId}
-          >
-            <option value="">
-              {clientId ? "Select Store" : "Select client first"}
-            </option>
-            {stores.map((s) => (
-              <option key={s.storeId} value={s.storeId}>
-                {s.storeCode} - {s.storeName}
-              </option>
-            ))}
+          <label className={labelCls}>STORE</label>
+          <select value={storeId} onChange={(e) => setStoreId(e.target.value)} disabled={!clientId} className={inputCls}>
+            <option value="">{clientId ? "Select Store" : "Select Client first"}</option>
+            {stores.map((s) => <option key={s.storeId} value={s.storeId}>{s.storeCode} — {s.storeName}</option>)}
           </select>
         </div>
-
-        {/* Warehouse */}
         <div>
-          <label className={labelCls}>Warehouse *</label>
-          <select
-            value={warehouseId}
-            onChange={(e) => setWarehouseId(e.target.value)}
-            className={inputCls}
-          >
+          <label className={labelCls}>WAREHOUSE *</label>
+          <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className={inputCls}>
             <option value="">Select Warehouse</option>
-            {warehouses.map((w) => (
-              <option key={w.warehouseId} value={w.warehouseId}>
-                {w.warehouseName}
-              </option>
-            ))}
+            {warehouses.map((w) => <option key={w.warehouseId} value={w.warehouseId}>{w.warehouseName}</option>)}
           </select>
         </div>
-
-        {/* Order Date */}
         <div>
-          <label className={labelCls}>Order Date</label>
-          <input
-            type="date"
-            value={orderDate}
-            onChange={(e) => setOrderDate(e.target.value)}
-            className={inputCls}
-          />
+          <label className={labelCls}>ORDER DATE</label>
+          <input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} className={inputCls} />
         </div>
       </div>
 
-      {/* ===== Barcode Input ===== */}
-      <div className="relative">
-        <div className="flex items-center gap-3 p-4 bg-card border-2 border-primary/30 rounded-xl shadow-sm focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary/10 transition-all">
-          <div className="flex items-center justify-center w-12 h-12 bg-primary/10 rounded-xl shrink-0">
-            <ScanLine size={24} className="text-primary" />
-          </div>
-          <div className="flex-1">
-            <input
-              ref={barcodeRef}
-              type="text"
-              value={barcodeInput}
-              onChange={(e) => setBarcodeInput(e.target.value)}
-              onKeyDown={handleBarcodeScan}
-              placeholder="Scan or type barcode + Enter... (e.g., B26FW001-39)"
-              className="w-full text-lg font-mono bg-transparent border-none outline-none placeholder:text-muted-foreground/50"
-              autoFocus
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Press <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Enter</kbd> to scan
-              {" "}&middot;{" "}
-              <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Esc</kbd> to clear
-            </p>
-          </div>
+      {/* Barcode Input */}
+      <div className="relative border-2 border-primary/30 rounded-xl p-4 bg-primary/5 focus-within:border-primary transition-colors">
+        <div className="flex items-center gap-3">
+          <ScanLine size={28} className="text-primary shrink-0" />
+          <input
+            ref={barcodeRef}
+            type="text"
+            value={barcodeInput}
+            onChange={(e) => setBarcodeInput(e.target.value)}
+            onKeyDown={handleBarcodeScan}
+            placeholder="Scan or type barcode + Enter... (e.g., B26FW001-39)"
+            className="flex-1 bg-transparent text-base focus:outline-none placeholder:text-muted-foreground/60"
+            autoComplete="off"
+          />
           {barcodeInput && (
-            <button
-              onClick={() => {
-                setBarcodeInput("");
-                barcodeRef.current?.focus();
-              }}
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
-            >
-              <X size={18} className="text-muted-foreground" />
+            <button onClick={() => { setBarcodeInput(""); barcodeRef.current?.focus(); }} className="p-1 rounded hover:bg-muted">
+              <X size={16} className="text-muted-foreground" />
             </button>
           )}
         </div>
-      </div>
-
-      {/* ===== Main Content: Table + Size Summary ===== */}
-      {scannedLines.length === 0 ? (
-        <div className="border-2 border-dashed rounded-xl p-16 text-center">
-          <ScanLine
-            size={56}
-            className="mx-auto text-muted-foreground/30 mb-4"
-          />
-          <h3 className="text-lg font-medium text-muted-foreground mb-1">
-            No items scanned yet
-          </h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Scan a barcode using your scanner or type the barcode in the input
-            field above and press Enter to start adding items to the order.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-          {/* ---- Scanned Items Table ---- */}
-          <div className="xl:col-span-2 border rounded-xl overflow-hidden bg-card shadow-sm">
-            <div className="px-5 py-3 bg-muted/40 border-b flex items-center justify-between">
-              <h2 className="text-sm font-semibold flex items-center gap-2">
-                <Package size={16} className="text-primary" />
-                Scanned Items
-              </h2>
-              <span className="text-xs text-muted-foreground">
-                {totalItems} line{totalItems !== 1 ? "s" : ""} &middot;{" "}
-                {totalPairs} pair{totalPairs !== 1 ? "s" : ""}
-              </span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-muted/30 border-b">
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-10">
-                      #
-                    </th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Barcode
-                    </th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Article
-                    </th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Colour
-                    </th>
-                    <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Size
-                    </th>
-                    <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      MRP
-                    </th>
-                    <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-32">
-                      Qty
-                    </th>
-                    <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-12">
-                      &nbsp;
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groupedLines.map((group) => (
-                    <>
-                      {/* Article Group Header */}
-                      <tr
-                        key={`header-${group.articleCode}`}
-                        className="bg-primary/5 border-b"
-                      >
-                        <td colSpan={9} className="px-4 py-2">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-muted rounded-lg flex items-center justify-center shrink-0">
-                              <Package
-                                size={14}
-                                className="text-muted-foreground"
-                              />
-                            </div>
-                            <div>
-                              <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-0.5 rounded mr-2 font-bold">
-                                {group.articleCode}
-                              </span>
-                              <span className="text-sm font-semibold">
-                                {group.articleName}
-                              </span>
-                              {group.hsnCode && (
-                                <span className="ml-2 text-xs text-muted-foreground">
-                                  HSN: {group.hsnCode}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* Individual line rows */}
-                      {group.lines.map((line, lineIdx) => (
-                        <tr
-                          key={line.id}
-                          className={`
-                            border-b hover:bg-muted/30 transition-all duration-300
-                            ${
-                              lastScannedId === line.id
-                                ? "bg-emerald-50 dark:bg-emerald-950/20 ring-1 ring-inset ring-emerald-200 dark:ring-emerald-800"
-                                : ""
-                            }
-                          `}
-                        >
-                          <td className="px-4 py-2.5 text-muted-foreground text-xs">
-                            {lineIdx + 1}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <code className="text-xs bg-muted px-2 py-0.5 rounded font-mono">
-                              {line.barcode}
-                            </code>
-                          </td>
-                          <td className="px-4 py-2.5 text-sm">
-                            {line.articleCode}
-                          </td>
-                          <td className="px-4 py-2.5 text-sm text-muted-foreground">
-                            {line.color || "-"}
-                          </td>
-                          <td className="px-4 py-2.5 text-center">
-                            <span className="inline-flex items-center justify-center w-8 h-8 bg-primary/10 text-primary rounded-lg text-xs font-bold">
-                              {line.size}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-sm font-medium">
-                            {line.mrp > 0 ? formatCurrency(line.mrp) : "-"}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                onClick={() => adjustQty(line.id, -1)}
-                                className="w-7 h-7 flex items-center justify-center rounded-md border hover:bg-muted transition-colors"
-                                disabled={line.qty <= 1}
-                              >
-                                <Minus size={12} />
-                              </button>
-                              <span className="w-10 text-center font-bold text-sm">
-                                {line.qty}
-                              </span>
-                              <button
-                                onClick={() => adjustQty(line.id, 1)}
-                                className="w-7 h-7 flex items-center justify-center rounded-md border hover:bg-muted transition-colors"
-                              >
-                                <Plus size={12} />
-                              </button>
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-sm font-semibold">
-                            {line.mrp > 0
-                              ? formatCurrency(line.mrp * line.qty)
-                              : "-"}
-                          </td>
-                          <td className="px-4 py-2.5 text-center">
-                            <button
-                              onClick={() => removeLine(line.id)}
-                              className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors"
-                              title="Remove"
-                            >
-                              <Trash2
-                                size={14}
-                                className="text-destructive"
-                              />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Running Totals */}
-            <div className="flex items-center justify-between px-5 py-3 bg-muted/30 border-t">
-              <div className="flex items-center gap-6 text-sm">
-                <span className="text-muted-foreground">
-                  Total Items:{" "}
-                  <span className="font-bold text-foreground">
-                    {totalItems}
-                  </span>
-                </span>
-                <span className="text-muted-foreground">
-                  Total Pairs:{" "}
-                  <span className="font-bold text-foreground">
-                    {totalPairs}
-                  </span>
-                </span>
-              </div>
-              <div className="text-sm font-semibold">
-                Total Value:{" "}
-                <span className="text-primary text-base">
-                  {formatCurrency(totalValue)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* ---- Size-wise Summary Panel ---- */}
-          <div className="border rounded-xl overflow-hidden bg-card shadow-sm h-fit">
-            <div className="px-5 py-3 bg-muted/40 border-b">
-              <h2 className="text-sm font-semibold flex items-center gap-2">
-                <Hash size={16} className="text-primary" />
-                Size-wise Summary
-              </h2>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-muted/30 border-b">
-                    <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                      Article
-                    </th>
-                    {SIZE_COLUMNS.map((s) => (
-                      <th
-                        key={s}
-                        className="px-2 py-2 text-center font-bold text-primary whitespace-nowrap min-w-[36px]"
-                      >
-                        {s}
-                      </th>
-                    ))}
-                    <th className="px-3 py-2 text-center font-bold text-foreground uppercase tracking-wider whitespace-nowrap">
-                      Total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sizeSummary.map((row) => (
-                    <tr
-                      key={row.articleCode}
-                      className="border-b hover:bg-muted/30 transition-colors"
-                    >
-                      <td className="px-3 py-2.5">
-                        <span className="font-mono text-xs font-bold text-primary">
-                          {row.articleCode}
-                        </span>
-                      </td>
-                      {SIZE_COLUMNS.map((s) => (
-                        <td key={s} className="px-2 py-2.5 text-center">
-                          {row.sizes[s] ? (
-                            <span className="inline-flex items-center justify-center w-7 h-7 bg-primary/10 text-primary rounded font-bold text-xs">
-                              {row.sizes[s]}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground/30">
-                              0
-                            </span>
-                          )}
-                        </td>
-                      ))}
-                      <td className="px-3 py-2.5 text-center">
-                        <span className="inline-flex items-center justify-center w-8 h-7 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded font-bold text-xs">
-                          {row.total}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {sizeSummary.length === 0 && (
-              <div className="p-6 text-center text-sm text-muted-foreground">
-                Scan items to see size summary
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ===== Action Bar (bottom) ===== */}
-      {scannedLines.length > 0 && (
-        <div className="flex items-center justify-between p-4 bg-card border rounded-xl shadow-sm sticky bottom-4">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Package size={18} className="text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Articles</p>
-                <p className="text-lg font-bold">{groupedLines.length}</p>
-              </div>
-            </div>
-            <div className="w-px h-10 bg-border" />
-            <div>
-              <p className="text-xs text-muted-foreground">Total Pairs</p>
-              <p className="text-lg font-bold text-primary">{totalPairs}</p>
-            </div>
-            <div className="w-px h-10 bg-border" />
-            <div>
-              <p className="text-xs text-muted-foreground">Total Value</p>
-              <p className="text-lg font-bold text-emerald-600">
-                {formatCurrency(totalValue)}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                if (
-                  confirm(
-                    "Cancel this order? All scanned items will be cleared."
-                  )
-                ) {
-                  setScannedLines([]);
-                }
-              }}
-              className="px-4 py-2 text-sm border rounded-lg hover:bg-muted transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveDraft}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm border rounded-lg hover:bg-muted transition-colors font-medium disabled:opacity-50"
-            >
-              <Save size={14} />
-              {saving ? "Saving..." : "Save as Draft"}
-            </button>
-            <button
-              onClick={handleConfirmOrder}
-              disabled={confirmSaving}
-              className="flex items-center gap-1.5 px-5 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold disabled:opacity-50 shadow-sm"
-            >
-              <Check size={14} />
-              {confirmSaving ? "Confirming..." : "Confirm Order"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Branding Footer */}
-      <div className="text-center py-3">
-        <p className="text-xs text-muted-foreground">
-          Powered by{" "}
-          <span className="font-semibold text-primary">Shalive Solutions</span>{" "}
-          RetailERP
+        <p className="text-xs text-muted-foreground mt-1.5 ml-10">
+          Press <kbd className="bg-card border px-1 rounded text-xs">Enter</kbd> to scan ·{" "}
+          <kbd className="bg-card border px-1 rounded text-xs">Esc</kbd> to clear
         </p>
       </div>
 
-      {/* Inline animation styles */}
-      <style jsx>{`
-        @keyframes slideInRight {
-          from {
-            transform: translateX(120%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        .animate-slideInRight {
-          animation: slideInRight 0.3s ease-out;
-        }
-      `}</style>
+      {/* Main content area: Scanned items + Size summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Scanned Items */}
+        <div className="lg:col-span-2 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <Package size={16} className="text-primary" />
+              Scanned Items
+            </h2>
+            <span className="text-xs text-muted-foreground">{scannedLines.length} line{scannedLines.length !== 1 ? "s" : ""} · {totalPairs} pair{totalPairs !== 1 ? "s" : ""}</span>
+          </div>
+
+          {scannedLines.length === 0 ? (
+            <div className="border-2 border-dashed rounded-xl p-10 text-center text-muted-foreground">
+              <ScanLine size={40} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No items scanned yet. Start scanning barcodes above.</p>
+            </div>
+          ) : (
+            <>
+              <div className="border rounded-xl overflow-hidden">
+                <div className="grid grid-cols-[2rem_1fr_1fr_1fr_5rem_5rem_6rem_2rem] gap-0 bg-muted/50 text-xs font-semibold text-muted-foreground px-3 py-2 border-b">
+                  <span>#</span><span>BARCODE</span><span>ARTICLE</span><span>COLOUR</span><span className="text-center">SIZE</span><span className="text-center">MRP</span><span className="text-center">QTY</span><span></span>
+                </div>
+                {groupedLines.map((group) => (
+                  <div key={group.articleCode}>
+                    <div className="px-3 py-1.5 bg-primary/5 text-xs font-bold text-primary flex items-center gap-2">
+                      <span className="font-mono bg-primary/10 px-1.5 rounded">{group.articleCode}</span>
+                      {group.articleName !== group.articleCode && <span className="font-normal text-foreground">{group.articleName}</span>}
+                    </div>
+                    {group.lines.map((line, idx) => (
+                      <div key={line.id}
+                        className={`grid grid-cols-[2rem_1fr_1fr_1fr_5rem_5rem_6rem_2rem] gap-0 items-center px-3 py-2 border-t text-sm ${line.id === lastScannedId ? "bg-emerald-50" : "hover:bg-muted/30"}`}>
+                        <span className="text-xs text-muted-foreground">{idx + 1}</span>
+                        <span className="font-mono text-xs truncate">{line.barcode}</span>
+                        <span className="text-xs truncate">{line.articleName}</span>
+                        <span className="text-xs text-muted-foreground">{line.color || "—"}</span>
+                        <span className={`text-center font-bold text-xs px-2 py-0.5 rounded ${line.size ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+                          {line.size || "—"}
+                        </span>
+                        <span className="text-center text-xs">{line.mrp > 0 ? formatCurrency(line.mrp) : "—"}</span>
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => adjustQty(line.id, -1)} className="w-5 h-5 flex items-center justify-center rounded border hover:bg-muted text-xs">
+                            <Minus size={10} />
+                          </button>
+                          <span className="w-6 text-center text-xs font-semibold">{line.qty}</span>
+                          <button onClick={() => adjustQty(line.id, 1)} className="w-5 h-5 flex items-center justify-center rounded border hover:bg-muted text-xs">
+                            <Plus size={10} />
+                          </button>
+                        </div>
+                        <button onClick={() => removeLine(line.id)} className="p-1 rounded hover:bg-destructive/10">
+                          <Trash2 size={12} className="text-destructive" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer totals */}
+              <div className="flex items-center justify-between p-3 bg-card border rounded-xl text-sm">
+                <div className="flex gap-4">
+                  <span>Total Items: <strong>{scannedLines.length}</strong></span>
+                  <span>Total Pairs: <strong className="text-primary">{totalPairs}</strong></span>
+                </div>
+                <span>Total Value: <strong className="text-primary">{formatCurrency(totalValue)}</strong></span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Size-wise Summary */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Hash size={16} className="text-primary" />
+            Size-wise Summary
+          </h2>
+          {sizeSummary.length === 0 ? (
+            <div className="border-2 border-dashed rounded-xl p-6 text-center text-muted-foreground text-sm">No items yet</div>
+          ) : (
+            <div className="border rounded-xl overflow-hidden">
+              <div className="bg-muted/50 px-3 py-2 grid gap-1 text-xs font-semibold text-muted-foreground" style={{ gridTemplateColumns: `1fr repeat(${SIZE_COLUMNS.length}, 2rem) 3rem` }}>
+                <span>ARTICLE</span>
+                {SIZE_COLUMNS.map((s) => <span key={s} className="text-center">{s}</span>)}
+                <span className="text-right">TOTAL</span>
+              </div>
+              {sizeSummary.map((row) => (
+                <div key={row.articleCode} className="border-t px-3 py-2 grid gap-1 items-center text-xs" style={{ gridTemplateColumns: `1fr repeat(${SIZE_COLUMNS.length}, 2rem) 3rem` }}>
+                  <span className="font-medium text-primary truncate">{row.articleCode}</span>
+                  {SIZE_COLUMNS.map((s) => (
+                    <span key={s} className={`text-center ${row.sizes[s] ? "font-bold text-primary bg-primary/10 rounded" : "text-muted-foreground"}`}>
+                      {row.sizes[s] || 0}
+                    </span>
+                  ))}
+                  <span className="text-right font-bold">{row.total}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Bottom totals summary */}
+          <div className="p-3 bg-card border rounded-xl space-y-1 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Articles</span><strong>{groupedLines.length}</strong></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Pairs</span><strong className="text-primary">{totalPairs}</strong></div>
+            <div className="flex justify-between border-t pt-1 mt-1"><span className="text-muted-foreground">Total Value</span><strong className="text-primary">{formatCurrency(totalValue)}</strong></div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

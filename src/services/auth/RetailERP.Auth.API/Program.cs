@@ -23,7 +23,8 @@ builder.Host.UseSerilog();
 
 // Database
 builder.Services.AddDbContext<AuthDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+        sql => sql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)));
 builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AuthDbContext>());
 
 // Services
