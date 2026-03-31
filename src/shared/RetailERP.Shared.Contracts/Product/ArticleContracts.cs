@@ -135,3 +135,7 @@ public record CreateSeasonRequest(string SeasonCode, DateTime StartDate, DateTim
 public record SubItemDto(Guid Id, Guid ParentId, string ParentName, string Name, bool IsActive);
 
 public record CreateSubItemRequest(Guid ParentId, string Name, bool IsActive = true);
+
+public record ColorDto(Guid ColorId, string ColorName, string? ColorCode, bool IsActive);
+
+public record CreateColorRequest(string ColorName, string? ColorCode, bool IsActive = true);

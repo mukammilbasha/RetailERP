@@ -777,11 +777,14 @@ CREATE TABLE sales.Clients (
     Organisation  NVARCHAR(300)    NULL,
     GSTIN         NVARCHAR(15)     NULL,
     PAN           NVARCHAR(10)     NULL,
+    State         NVARCHAR(100)    NULL,
     StateId       INT              NULL,
     StateCode     NVARCHAR(5)      NULL,
     Zone          NVARCHAR(20)     NULL,
     Email         NVARCHAR(200)    NULL,
     ContactNo     NVARCHAR(20)     NULL,
+    BusinessChannel NVARCHAR(50)   NULL,
+    BusinessModule  NVARCHAR(50)   NULL,
     MarginPercent DECIMAL(5,2)     NOT NULL DEFAULT 0,
     MarginType    NVARCHAR(20)     NOT NULL DEFAULT 'NET OF TAXES',
     IsActive      BIT              NOT NULL DEFAULT 1,
@@ -806,11 +809,15 @@ CREATE TABLE sales.Stores (
     Organisation  NVARCHAR(300)    NULL,
     City          NVARCHAR(100)    NULL,
     State         NVARCHAR(100)    NULL,
+    Zone          NVARCHAR(20)     NULL,
+    StateCode     NVARCHAR(5)      NULL,
+    Pincode       NVARCHAR(10)     NULL,
     Channel       NVARCHAR(50)     NULL,
     ModusOperandi NVARCHAR(10)     NULL,
     MarginPercent DECIMAL(5,2)     NOT NULL DEFAULT 0,
     MarginType    NVARCHAR(20)     NOT NULL DEFAULT 'NET OF TAXES',
     ManagerName   NVARCHAR(200)    NULL,
+    ContactNo     NVARCHAR(20)     NULL,
     Email         NVARCHAR(200)    NULL,
     GSTIN         NVARCHAR(15)     NULL,
     PAN           NVARCHAR(10)     NULL,
@@ -2368,6 +2375,36 @@ IF NOT EXISTS (SELECT 1 FROM auth.Users WHERE TenantId=@TenantId AND Email='acco
 IF NOT EXISTS (SELECT 1 FROM auth.Users WHERE TenantId=@TenantId AND Email='viewer@elcurio.com')
     INSERT INTO auth.Users(UserId,TenantId,FullName,Email,PasswordHash,RoleId,IsActive,IsFirstLogin)
     VALUES(NEWID(),@TenantId,'Sneha Gupta','viewer@elcurio.com',@PwHash,@ViewerRoleId,1,1);
+
+-- Seed Colors
+IF NOT EXISTS (SELECT 1 FROM master.Colors WHERE TenantId=@TenantId AND ColorName='BLACK')
+    INSERT INTO master.Colors(ColorId,TenantId,ColorName,ColorCode,IsActive,CreatedAt) VALUES
+    (NEWID(),@TenantId,'BLACK','BLK',1,SYSUTCDATETIME());
+IF NOT EXISTS (SELECT 1 FROM master.Colors WHERE TenantId=@TenantId AND ColorName='TAN')
+    INSERT INTO master.Colors(ColorId,TenantId,ColorName,ColorCode,IsActive,CreatedAt) VALUES
+    (NEWID(),@TenantId,'TAN','TAN',1,SYSUTCDATETIME());
+IF NOT EXISTS (SELECT 1 FROM master.Colors WHERE TenantId=@TenantId AND ColorName='WHITE')
+    INSERT INTO master.Colors(ColorId,TenantId,ColorName,ColorCode,IsActive,CreatedAt) VALUES
+    (NEWID(),@TenantId,'WHITE','WHT',1,SYSUTCDATETIME());
+IF NOT EXISTS (SELECT 1 FROM master.Colors WHERE TenantId=@TenantId AND ColorName='BROWN')
+    INSERT INTO master.Colors(ColorId,TenantId,ColorName,ColorCode,IsActive,CreatedAt) VALUES
+    (NEWID(),@TenantId,'BROWN','BRN',1,SYSUTCDATETIME());
+IF NOT EXISTS (SELECT 1 FROM master.Colors WHERE TenantId=@TenantId AND ColorName='BORDO')
+    INSERT INTO master.Colors(ColorId,TenantId,ColorName,ColorCode,IsActive,CreatedAt) VALUES
+    (NEWID(),@TenantId,'BORDO','BRD',1,SYSUTCDATETIME());
+IF NOT EXISTS (SELECT 1 FROM master.Colors WHERE TenantId=@TenantId AND ColorName='NAVY')
+    INSERT INTO master.Colors(ColorId,TenantId,ColorName,ColorCode,IsActive,CreatedAt) VALUES
+    (NEWID(),@TenantId,'NAVY','NVY',1,SYSUTCDATETIME());
+
+-- Seed Warehouses
+DECLARE @AdminUserId UNIQUEIDENTIFIER;
+SELECT @AdminUserId = UserId FROM auth.Users WHERE TenantId=@TenantId AND Email='admin@elcurio.com';
+IF NOT EXISTS (SELECT 1 FROM warehouse.Warehouses WHERE TenantId=@TenantId AND WarehouseCode='WH-001')
+    INSERT INTO warehouse.Warehouses(WarehouseId,TenantId,WarehouseCode,WarehouseName,IsActive,CreatedAt,CreatedBy)
+    VALUES(NEWID(),@TenantId,'WH-001','SIPCOT',1,SYSUTCDATETIME(),@AdminUserId);
+IF NOT EXISTS (SELECT 1 FROM warehouse.Warehouses WHERE TenantId=@TenantId AND WarehouseCode='WH-002')
+    INSERT INTO warehouse.Warehouses(WarehouseId,TenantId,WarehouseCode,WarehouseName,IsActive,CreatedAt,CreatedBy)
+    VALUES(NEWID(),@TenantId,'WH-002','MANTANGHAL',1,SYSUTCDATETIME(),@AdminUserId);
 GO
 
 -- ── 5.5  ROLE PERMISSIONS ────────────────────────────────────────────
@@ -2839,4 +2876,34 @@ VALUES(NEWID(),@TenantId,'EL CURIO ENTERPRISES PVT LTD','EL CURIO','27AABCE1234F
 GO
 
 PRINT '>> PART 5: Seed data inserted.';
+GO
+
+-- ============================================================
+-- PART 6: Migrations for existing databases
+-- ============================================================
+
+-- Migration 021: Add Zone, StateCode, ContactNo, Pincode to sales.Stores
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('sales.Stores') AND name = 'Zone')
+    ALTER TABLE sales.Stores ADD Zone NVARCHAR(20) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('sales.Stores') AND name = 'StateCode')
+    ALTER TABLE sales.Stores ADD StateCode NVARCHAR(5) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('sales.Stores') AND name = 'ContactNo')
+    ALTER TABLE sales.Stores ADD ContactNo NVARCHAR(20) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('sales.Stores') AND name = 'Pincode')
+    ALTER TABLE sales.Stores ADD Pincode NVARCHAR(10) NULL;
+GO
+
+-- Migration 022: Add State (name) column to sales.Clients
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('sales.Clients') AND name = 'State')
+    ALTER TABLE sales.Clients ADD State NVARCHAR(100) NULL;
+GO
+
+-- Migration 023: Add BusinessChannel and BusinessModule to sales.Clients
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('sales.Clients') AND name = 'BusinessChannel')
+    ALTER TABLE sales.Clients ADD BusinessChannel NVARCHAR(50) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('sales.Clients') AND name = 'BusinessModule')
+    ALTER TABLE sales.Clients ADD BusinessModule NVARCHAR(50) NULL;
+GO
+
+PRINT '>> PART 6: Migrations applied.';
 GO

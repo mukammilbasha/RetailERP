@@ -1,17 +1,132 @@
-# RetailERP — Offline Client Deployment
-# All images loaded from local tar files (no internet required)
-# SQL Server: connects to existing SQL Server Express on host machine
-# No Grafana / Prometheus / SQL Docker container
+# =============================================================================
+#  RetailERP — Client Docker Desktop Deployment
+#  Single file, no source code required.
+#
+#  QUICK START
+#  -----------
+#  1. Install Docker Desktop: https://www.docker.com/products/docker-desktop
+#  2. Copy this file + the database\ folder to any directory
+#  3. Open PowerShell / Terminal in that directory and run:
+#
+#       docker compose up -d
+#
+#  4. Open browser: http://localhost:3003
+#     Login: admin@elcurio.com / Admin@123
+#
+#  STOP
+#  ----
+#       docker compose down          # stop (keep data)
+#       docker compose down -v       # stop + wipe all data
+#
+#  CUSTOMISE
+#  ---------
+#  Create a  .env  file next to this file to override defaults:
+#
+#       SA_PASSWORD=MySecurePassword@2024
+#       JWT_SECRET=MyCustomJwtSecretAtLeast32Characters
+#       FRONTEND_PORT=3003
+#       GATEWAY_PORT=5000
+#
+# =============================================================================
+
+x-db-env: &db-env
+  ASPNETCORE_ENVIRONMENT: "Docker"
+  ASPNETCORE_URLS: "http://+:8080"
+  ConnectionStrings__DefaultConnection: >-
+    Server=sqlserver;
+    Database=RetailERP;
+    User Id=sa;
+    Password=${SA_PASSWORD:-RetailERP@2024!};
+    TrustServerCertificate=true;
+    MultipleActiveResultSets=true
+  Jwt__Secret: "${JWT_SECRET:-RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters}"
+  Jwt__Issuer: "RetailERP.Auth"
+  Jwt__Audience: "RetailERP.Client"
+  Cors__Origins__0: "http://localhost:${FRONTEND_PORT:-3003}"
+  Cors__Origins__1: "http://localhost:3000"
+  Cors__Origins__2: "http://localhost:3001"
+  Cors__Origins__3: "http://localhost:3003"
+  Cors__Origins__4: "http://${SERVER_IP:-192.168.1.128}:${FRONTEND_PORT:-3003}"
+  Cors__Origins__5: "http://${SERVER_IP:-192.168.1.128}:3000"
+  Cors__Origins__6: "http://${SERVER_IP:-192.168.1.128}:3003"
 
 services:
 
+  # ---------------------------------------------------------------------------
+  # SQL Server 2022
+  # ---------------------------------------------------------------------------
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: retailerp-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD:-RetailERP@2024!}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "${SQL_PORT:-1434}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - retailerp-net
+    restart: unless-stopped
+    healthcheck:
+      test: >
+        /opt/mssql-tools18/bin/sqlcmd
+        -S localhost -U sa -P "$$MSSQL_SA_PASSWORD"
+        -Q "SELECT 1" -C -b
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+
+  # ---------------------------------------------------------------------------
+  # Database Initialisation (runs once, creates schema + seed data)
+  # ---------------------------------------------------------------------------
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: retailerp-db-init
+    user: root
+    networks:
+      - retailerp-net
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes:
+      - ./database:/database:ro
+    restart: "no"
+    entrypoint: /bin/bash
+    command: >
+      -c "
+        SQLCMD=/opt/mssql-tools18/bin/sqlcmd;
+        echo '[db-init] Creating RetailERP database...';
+        $$SQLCMD -S sqlserver -U sa -P '${SA_PASSWORD:-RetailERP@2024!}' -C
+          -Q \"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name='RetailERP')
+               CREATE DATABASE [RetailERP]\";
+        echo '[db-init] Running schema and seed scripts...';
+        for f in
+          /database/schemas/*.sql
+          /database/tables/*.sql
+          /database/indexes/*.sql
+          /database/stored-procedures/*.sql
+          /database/seed-data/*.sql; do
+          [ -f \"$$f\" ] || continue;
+          echo \"  -> $$f\";
+          $$SQLCMD -S sqlserver -U sa -P '${SA_PASSWORD:-RetailERP@2024!}' -C
+            -d RetailERP -i \"$$f\";
+        done;
+        echo '[db-init] Done.';
+      "
+
+  # ---------------------------------------------------------------------------
+  # Redis (session cache, token blacklist)
+  # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: retailerp-redis
     volumes:
       - redis-data:/data
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -19,26 +134,26 @@ services:
       timeout: 3s
       retries: 5
 
+  # ---------------------------------------------------------------------------
+  # Auth Service  :5001
+  # ---------------------------------------------------------------------------
   auth-api:
     image: mukammilbasha/retailerp:auth-api
     container_name: retailerp-auth
     ports:
-      - "5001:8080"
+      - "${AUTH_PORT:-5001}:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
-      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
-      Jwt__Issuer: "RetailERP.Auth"
-      Jwt__Audience: "RetailERP.Client"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      <<: *db-env
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
     depends_on:
+      sqlserver:
+        condition: service_healthy
       redis:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     healthcheck:
       test: curl -f http://localhost:8080/health || exit 1
       interval: 15s
@@ -46,148 +161,160 @@ services:
       retries: 5
       start_period: 30s
 
+  # ---------------------------------------------------------------------------
+  # Product Service  :5002
+  # ---------------------------------------------------------------------------
   product-api:
     image: mukammilbasha/retailerp:product-api
     container_name: retailerp-product
     ports:
-      - "5002:8080"
+      - "${PRODUCT_PORT:-5002}:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
-      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
-      Jwt__Issuer: "RetailERP.Auth"
-      Jwt__Audience: "RetailERP.Client"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      <<: *db-env
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
+  # ---------------------------------------------------------------------------
+  # Inventory Service  :5003
+  # ---------------------------------------------------------------------------
   inventory-api:
     image: mukammilbasha/retailerp:inventory-api
     container_name: retailerp-inventory
     ports:
-      - "5003:8080"
+      - "${INVENTORY_PORT:-5003}:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
-      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
-      Jwt__Issuer: "RetailERP.Auth"
-      Jwt__Audience: "RetailERP.Client"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      <<: *db-env
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
+  # ---------------------------------------------------------------------------
+  # Order Service  :5004
+  # ---------------------------------------------------------------------------
   order-api:
     image: mukammilbasha/retailerp:order-api
     container_name: retailerp-order
     ports:
-      - "5004:8080"
+      - "${ORDER_PORT:-5004}:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
-      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
-      Jwt__Issuer: "RetailERP.Auth"
-      Jwt__Audience: "RetailERP.Client"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      <<: *db-env
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
+  # ---------------------------------------------------------------------------
+  # Production Service  :5005
+  # ---------------------------------------------------------------------------
   production-api:
     image: mukammilbasha/retailerp:production-api
     container_name: retailerp-production
     ports:
-      - "5005:8080"
+      - "${PRODUCTION_PORT:-5005}:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
-      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
-      Jwt__Issuer: "RetailERP.Auth"
-      Jwt__Audience: "RetailERP.Client"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      <<: *db-env
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
+  # ---------------------------------------------------------------------------
+  # Billing Service  :5006
+  # ---------------------------------------------------------------------------
   billing-api:
     image: mukammilbasha/retailerp:billing-api
     container_name: retailerp-billing
     ports:
-      - "5006:8080"
+      - "${BILLING_PORT:-5006}:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
-      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
-      Jwt__Issuer: "RetailERP.Auth"
-      Jwt__Audience: "RetailERP.Client"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      <<: *db-env
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
+  # ---------------------------------------------------------------------------
+  # Reporting Service  :5007
+  # ---------------------------------------------------------------------------
   reporting-api:
     image: mukammilbasha/retailerp:reporting-api
     container_name: retailerp-reporting
     ports:
-      - "5007:8080"
+      - "${REPORTING_PORT:-5007}:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
-      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
-      Jwt__Issuer: "RetailERP.Auth"
-      Jwt__Audience: "RetailERP.Client"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      <<: *db-env
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
+  # ---------------------------------------------------------------------------
+  # API Gateway  :5000  (YARP reverse proxy)
+  # ---------------------------------------------------------------------------
   gateway:
     image: mukammilbasha/retailerp:gateway
     container_name: retailerp-gateway
     ports:
-      - "5000:8080"
+      - "${GATEWAY_PORT:-5000}:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: "Production"
-      ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal\\SQLEXPRESS;Database=RetailERP;User Id=ERPAdmin;Password=ERP@admin;TrustServerCertificate=true"
-      Jwt__Secret: "RetailERP-SuperSecret-JWT-Key-2024-Must-Be-At-Least-32-Characters"
-      Jwt__Issuer: "RetailERP.Auth"
-      Jwt__Audience: "RetailERP.Client"
-      Cors__Origins__0: "http://localhost:3003"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      <<: *db-env
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
     depends_on:
       auth-api:
         condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:8080/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
+  # ---------------------------------------------------------------------------
+  # Frontend  :3003  (Next.js)
+  # ---------------------------------------------------------------------------
   frontend:
     image: mukammilbasha/retailerp:frontend
     container_name: retailerp-frontend
     ports:
-      - "3003:3000"
+      - "${FRONTEND_PORT:-3003}:3000"
     environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:5000"
+      NEXT_PUBLIC_API_URL: "http://localhost:${GATEWAY_PORT:-5000}"
+      NODE_ENV: "production"
     networks:
-      - retailerp-network
+      - retailerp-net
     restart: unless-stopped
     depends_on:
-      - gateway
+      gateway:
+        condition: service_healthy
     healthcheck:
       test: wget -q --spider http://127.0.0.1:3000 || exit 1
       interval: 30s
@@ -195,18 +322,11 @@ services:
       retries: 3
       start_period: 20s
 
-  docs:
-    image: mukammilbasha/retailerp:docs
-    container_name: retailerp-docs
-    ports:
-      - "3100:3100"
-    networks:
-      - retailerp-network
-    restart: unless-stopped
-
+# -----------------------------------------------------------------------------
 volumes:
+  sqlserver-data:
   redis-data:
 
 networks:
-  retailerp-network:
+  retailerp-net:
     driver: bridge

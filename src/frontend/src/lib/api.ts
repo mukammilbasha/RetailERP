@@ -1,9 +1,10 @@
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-
+// Use relative paths so the browser calls the same origin (/api/...).
+// Next.js server-side rewrites (next.config.ts) then proxy to the gateway.
+// This means the frontend works correctly from any IP address.
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: "",
   headers: { "Content-Type": "application/json" },
 });
 
@@ -29,7 +30,7 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem("refreshToken");
         if (!refreshToken) throw new Error("No refresh token");
 
-        const { data } = await axios.post(`${API_URL}/api/auth/refresh`, {
+        const { data } = await axios.post(`/api/auth/refresh`, {
           refreshToken,
         });
 

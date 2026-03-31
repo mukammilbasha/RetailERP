@@ -22,6 +22,7 @@ public class ProductDbContext : DbContext
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<SubCategory> SubCategories => Set<SubCategory>();
     public DbSet<Group> Groups => Set<Group>();
+    public DbSet<ColorMaster> Colors => Set<ColorMaster>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -186,6 +187,18 @@ public class ProductDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("GroupId");
             entity.Property(e => e.Name).HasColumnName("GroupName").HasMaxLength(100).IsRequired();
             entity.HasIndex(e => new { e.TenantId, e.Name }).IsUnique();
+        });
+
+        // ── Color (master schema) ──────────────────────────────────────────
+
+        modelBuilder.Entity<ColorMaster>(entity =>
+        {
+            entity.ToTable("Colors", "master");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("ColorId");
+            entity.Property(e => e.ColorName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.ColorCode).HasMaxLength(20);
+            entity.HasIndex(e => new { e.TenantId, e.ColorName }).IsUnique();
         });
     }
 }

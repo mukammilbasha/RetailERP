@@ -56,6 +56,8 @@ public class ClientService : IClientService
             State = c.State,
             StateCode = c.StateCode,
             Zone = c.Zone,
+            BusinessChannel = c.BusinessChannel,
+            BusinessModule = c.BusinessModule,
             MarginPercent = c.MarginPercent,
             MarginType = c.MarginType,
             IsActive = c.IsActive,
@@ -84,6 +86,8 @@ public class ClientService : IClientService
             StateId = c.StateId,
             StateCode = c.StateCode,
             Zone = c.Zone,
+            BusinessChannel = c.BusinessChannel,
+            BusinessModule = c.BusinessModule,
             MarginPercent = c.MarginPercent,
             MarginType = c.MarginType,
             IsActive = c.IsActive,
@@ -109,6 +113,8 @@ public class ClientService : IClientService
             StateId = request.StateId,
             StateCode = request.StateCode,
             Zone = request.Zone,
+            BusinessChannel = request.BusinessChannel,
+            BusinessModule = request.BusinessModule,
             MarginPercent = request.MarginPercent,
             MarginType = request.MarginType ?? "ON MRP",
             IsActive = request.IsActive,
@@ -139,6 +145,8 @@ public class ClientService : IClientService
         client.StateId = request.StateId;
         client.StateCode = request.StateCode;
         client.Zone = request.Zone;
+        client.BusinessChannel = request.BusinessChannel;
+        client.BusinessModule = request.BusinessModule;
         client.MarginPercent = request.MarginPercent;
         client.MarginType = request.MarginType ?? client.MarginType ?? "ON MRP";
         client.IsActive = request.IsActive;
@@ -620,6 +628,8 @@ public class ClientDto
     public int? StateId { get; set; }
     public string? StateCode { get; set; }
     public string? Zone { get; set; }
+    public string? BusinessChannel { get; set; }
+    public string? BusinessModule { get; set; }
     public decimal MarginPercent { get; set; }
     public string? MarginType { get; set; }
     public bool IsActive { get; set; }
@@ -664,6 +674,8 @@ public class CreateClientRequest
     public int? StateId { get; set; }
     public string? StateCode { get; set; }
     public string? Zone { get; set; }
+    public string? BusinessChannel { get; set; }
+    public string? BusinessModule { get; set; }
     public decimal MarginPercent { get; set; }
     public string? MarginType { get; set; }
     public bool IsActive { get; set; } = true;

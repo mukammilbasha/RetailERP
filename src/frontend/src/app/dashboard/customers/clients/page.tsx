@@ -21,7 +21,10 @@ interface Client {
   zone: string;
   email: string;
   contactNo: string;
+  businessChannel: string;
+  businessModule: string;
   marginPercent: number;
+  marginType: string;
   isActive: boolean;
 }
 
@@ -72,10 +75,14 @@ const INDIAN_STATES = [
 ];
 
 const ZONES = ["NORTH", "SOUTH", "EAST", "WEST", "CENTRAL"];
+const CHANNELS = ["MBO", "EBO", "ECOM", "DISTRIBUTOR"];
+const MODULES = ["SOR", "OUT RATE"];
+const MARGIN_TYPES = ["NET OF TAXES", "GROSS", "ON MRP"];
 
 const inputClass = "w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary";
 const selectClass = "w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-background";
 const labelClass = "block text-sm font-medium mb-1.5";
+const sectionTitleClass = "text-sm font-semibold text-primary border-b pb-2 mb-4";
 
 const emptyForm = () => ({
   clientCode: "",
@@ -87,7 +94,10 @@ const emptyForm = () => ({
   zone: "",
   email: "",
   contactNo: "",
+  businessChannel: "",
+  businessModule: "",
   marginPercent: 0,
+  marginType: "NET OF TAXES",
   isActive: true,
 });
 
@@ -150,7 +160,10 @@ export default function ClientsPage() {
       zone: client.zone || "",
       email: client.email || "",
       contactNo: client.contactNo || "",
+      businessChannel: client.businessChannel || "",
+      businessModule: client.businessModule || "",
       marginPercent: client.marginPercent ?? 0,
+      marginType: client.marginType || "NET OF TAXES",
       isActive: client.isActive ?? true,
     });
     setModalOpen(true);
@@ -166,6 +179,8 @@ export default function ClientsPage() {
       zone: required(form.zone, "Zone"),
       contactNo: pattern(form.contactNo, PATTERNS.PHONE, "Contact No", "10-digit mobile number"),
       email: pattern(form.email, PATTERNS.EMAIL, "Email", "valid email address"),
+      businessChannel: required(form.businessChannel, "Business Channel"),
+      businessModule: required(form.businessModule, "Business Module"),
     };
     if (hasErrors(newErrors)) { setErrors(newErrors); return; }
     try {
@@ -210,6 +225,7 @@ export default function ClientsPage() {
     { key: "zone", header: "Zone" },
     { key: "email", header: "Email" },
     { key: "contactNo", header: "Contact" },
+    { key: "businessChannel", header: "Channel" },
     {
       key: "marginPercent",
       header: "Margin %",
@@ -367,7 +383,7 @@ export default function ClientsPage() {
               <FieldError error={errors.zone} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Contact No *</label>
               <input
@@ -390,6 +406,38 @@ export default function ClientsPage() {
               />
               <FieldError error={errors.email} />
             </div>
+          </div>
+          {/* Business Configuration */}
+          <h3 className={sectionTitleClass}>Business Configuration</h3>
+          <div className="grid grid-cols-4 gap-4">
+            <div>
+              <label className={labelClass}>Business Channel *</label>
+              <select
+                value={form.businessChannel}
+                onChange={(e) => updateForm("businessChannel", e.target.value)}
+                className={`${selectClass} ${errors.businessChannel ? "border-destructive" : ""}`}
+              >
+                <option value="">Select channel</option>
+                {CHANNELS.map((ch) => (
+                  <option key={ch} value={ch}>{ch}</option>
+                ))}
+              </select>
+              <FieldError error={errors.businessChannel} />
+            </div>
+            <div>
+              <label className={labelClass}>Business Module *</label>
+              <select
+                value={form.businessModule}
+                onChange={(e) => updateForm("businessModule", e.target.value)}
+                className={`${selectClass} ${errors.businessModule ? "border-destructive" : ""}`}
+              >
+                <option value="">Select module</option>
+                {MODULES.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <FieldError error={errors.businessModule} />
+            </div>
             <div>
               <label className={labelClass}>Margin %</label>
               <input
@@ -399,6 +447,18 @@ export default function ClientsPage() {
                 placeholder="0"
                 className={inputClass}
               />
+            </div>
+            <div>
+              <label className={labelClass}>Margin Type</label>
+              <select
+                value={form.marginType}
+                onChange={(e) => updateForm("marginType", e.target.value)}
+                className={selectClass}
+              >
+                {MARGIN_TYPES.map((mt) => (
+                  <option key={mt} value={mt}>{mt}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="flex items-center gap-3">

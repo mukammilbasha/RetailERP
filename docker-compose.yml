@@ -9,6 +9,8 @@ x-common-env: &common-env
   Cors__Origins__0: "http://localhost:3000"
   Cors__Origins__1: "http://localhost:3003"
   Cors__Origins__2: "http://frontend:3000"
+  Cors__Origins__3: "http://192.168.1.128:3000"
+  Cors__Origins__4: "http://192.168.1.128:3003"
 
 services:
   # ─── Infrastructure ─────────────────────────────────────
@@ -290,12 +292,12 @@ services:
       context: .
       dockerfile: docker/Dockerfile.frontend
       args:
-        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:5000}"
+        NEXT_PUBLIC_API_URL: "http://gateway:8080"
     container_name: retailerp-frontend
     ports:
       - "3003:3000"
     environment:
-      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:5000}"
+      NEXT_PUBLIC_API_URL: "http://gateway:8080"
     networks:
       - retailerp-network
     restart: unless-stopped

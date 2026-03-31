@@ -15,6 +15,8 @@ public class Client : BaseAuditableEntity
     public string? Zone { get; set; }
     public string? Email { get; set; }
     public string? ContactNo { get; set; }
+    public string? BusinessChannel { get; set; }
+    public string? BusinessModule { get; set; }
     public decimal MarginPercent { get; set; }
     public string MarginType { get; set; } = "NET OF TAXES";
 

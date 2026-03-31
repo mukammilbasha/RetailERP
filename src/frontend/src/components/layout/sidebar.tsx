@@ -52,6 +52,8 @@ import {
   Key,
   ScanLine,
   ClipboardList,
+  Palette,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 
@@ -174,6 +176,7 @@ const navigation: NavGroup[] = [
           { label: "Categories", href: "/dashboard/masters/categories", icon: FolderOpen },
           { label: "Sub Categories", href: "/dashboard/masters/sub-categories", icon: FolderTree },
           { label: "Groups", href: "/dashboard/masters/groups", icon: Grid3X3 },
+          { label: "Colors", href: "/dashboard/masters/colors", icon: Palette },
           { label: "Sizes", href: "/dashboard/masters/sizes", icon: Ruler },
           { label: "Articles", href: "/dashboard/masters/articles", icon: ShoppingBag },
           { label: "SKUs", href: "/dashboard/masters/skus", icon: Barcode },
@@ -193,6 +196,11 @@ const navigation: NavGroup[] = [
   {
     section: "Inventory",
     items: [
+      {
+        label: "Warehouse",
+        href: "/dashboard/warehouse",
+        icon: Warehouse,
+      },
       {
         label: "Inventory",
         icon: Package,

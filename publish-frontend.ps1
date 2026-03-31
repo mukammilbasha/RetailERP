@@ -26,7 +26,12 @@ param(
     [string] $ApiUrl    = "http://localhost:5000",
     [string] $Version   = "1.0.0",
     [switch] $SkipBuild,
-    [int]    $Port      = 3003
+    [int]    $Port      = 3003,
+
+    # Optional: tag the pack folder with a client IP so you can build
+    # one pack per site.  e.g.  -ClientIp "192.168.1.100"
+    # Pack name becomes:  RetailERP-v1.0.0-2026-03-28-192-168-1-100
+    [string] $ClientIp  = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,7 +44,8 @@ $PublicDir     = Join-Path $FrontendDir "public"
 $BasePackDir   = Join-Path $RepoRoot "publish\iis-frontend-pm2"
 
 $Date          = Get-Date -Format "yyyy-MM-dd"
-$PackName      = "RetailERP-v$Version-$Date"
+$IpTag         = if ($ClientIp) { "-$($ClientIp -replace '\.', '-')" } else { "" }
+$PackName      = "RetailERP-v$Version-$Date$IpTag"
 $OutputDir     = Join-Path $BasePackDir $PackName
 $utf8NoBom     = New-Object System.Text.UTF8Encoding $false
 
@@ -56,6 +62,7 @@ Write-Host "  Output  : $OutputDir"
 Write-Host "  API URL : $ApiUrl"
 Write-Host "  Port    : $Port"
 Write-Host "  Date    : $Date"
+if ($ClientIp) { Write-Host "  Client  : $ClientIp" }
 Write-Host ""
 
 # ── 1. Build ───────────────────────────────────────────────────────────────────
@@ -68,16 +75,22 @@ if (-not $SkipBuild) {
 
     Push-Location $FrontendDir
     try {
-        $env:NEXT_PUBLIC_API_URL     = $ApiUrl
-        $env:NEXT_TELEMETRY_DISABLED = "1"
+        $env:NEXT_PUBLIC_API_URL      = $ApiUrl
+        $env:NEXT_TELEMETRY_DISABLED  = "1"
+        $env:NODE_NO_WARNINGS         = "1"
 
-        Write-Info "npm ci ..."
-        npm ci --prefer-offline 2>&1 | Select-Object -Last 2 | ForEach-Object { Write-Info $_ }
-        if ($LASTEXITCODE -ne 0) { Write-Fail "npm ci failed" }
+        Write-Info "npm install ..."
+        $out = cmd /c "npm install 2>&1"
+        $code = $LASTEXITCODE
+        $out | Select-Object -Last 5 | ForEach-Object { Write-Info "  $_" }
+        if ($code -ne 0) { Write-Fail "npm install failed (exit $code)" }
+        Write-OK "npm install done"
 
-        Write-Info "npm run build  (NEXT_PUBLIC_API_URL=$ApiUrl) ..."
-        npm run build 2>&1 | ForEach-Object { Write-Info $_ }
-        if ($LASTEXITCODE -ne 0) { Write-Fail "npm run build failed" }
+        Write-Info "npm run build ..."
+        $out = cmd /c "npm run build 2>&1"
+        $code = $LASTEXITCODE
+        $out | ForEach-Object { Write-Info "  $_" }
+        if ($code -ne 0) { Write-Fail "npm run build failed (exit $code)" }
         Write-OK "Build complete"
     } finally { Pop-Location }
 } else {

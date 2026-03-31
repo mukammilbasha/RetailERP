@@ -563,4 +563,70 @@ public class MasterDataService : IMasterDataService
         group.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync(ct);
     }
+
+    // ── Colors ──────────────────────────────────────────────────────────────
+
+    public async Task<List<ColorDto>> GetColorsAsync(Guid tenantId, string? search = null, CancellationToken ct = default)
+    {
+        var query = _context.Set<ColorMaster>().Where(c => c.TenantId == tenantId && c.IsActive);
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(c => c.ColorName.ToLower().Contains(search.ToLower()) || (c.ColorCode != null && c.ColorCode.ToLower().Contains(search.ToLower())));
+
+        return await query.OrderBy(c => c.ColorName)
+            .Select(c => new ColorDto(c.Id, c.ColorName, c.ColorCode, c.IsActive))
+            .ToListAsync(ct);
+    }
+
+    public async Task<ColorDto> GetColorByIdAsync(Guid id, Guid tenantId, CancellationToken ct = default)
+    {
+        var color = await _context.Set<ColorMaster>()
+            .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantId, ct)
+            ?? throw new KeyNotFoundException($"Color with ID {id} not found");
+        return new ColorDto(color.Id, color.ColorName, color.ColorCode, color.IsActive);
+    }
+
+    public async Task<ColorDto> CreateColorAsync(Guid tenantId, CreateColorRequest request, Guid createdBy, CancellationToken ct = default)
+    {
+        var exists = await _context.Set<ColorMaster>().AnyAsync(c => c.TenantId == tenantId && c.ColorName == request.ColorName && c.IsActive, ct);
+        if (exists) throw new ArgumentException($"Color '{request.ColorName}' already exists");
+
+        var color = new ColorMaster
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ColorName = request.ColorName,
+            ColorCode = request.ColorCode,
+            IsActive = request.IsActive,
+            CreatedBy = createdBy,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Set<ColorMaster>().Add(color);
+        await _context.SaveChangesAsync(ct);
+        return new ColorDto(color.Id, color.ColorName, color.ColorCode, color.IsActive);
+    }
+
+    public async Task<ColorDto> UpdateColorAsync(Guid id, Guid tenantId, CreateColorRequest request, CancellationToken ct = default)
+    {
+        var color = await _context.Set<ColorMaster>()
+            .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantId, ct)
+            ?? throw new KeyNotFoundException($"Color with ID {id} not found");
+
+        color.ColorName = request.ColorName;
+        color.ColorCode = request.ColorCode;
+        color.IsActive = request.IsActive;
+        color.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+        return new ColorDto(color.Id, color.ColorName, color.ColorCode, color.IsActive);
+    }
+
+    public async Task DeleteColorAsync(Guid id, Guid tenantId, CancellationToken ct = default)
+    {
+        var color = await _context.Set<ColorMaster>()
+            .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantId, ct)
+            ?? throw new KeyNotFoundException($"Color with ID {id} not found");
+
+        color.IsActive = false;
+        color.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+    }
 }

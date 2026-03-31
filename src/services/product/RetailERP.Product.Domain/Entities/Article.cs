@@ -103,6 +103,12 @@ public class Group : BaseAuditableEntity
     public ICollection<Article> Articles { get; set; } = new List<Article>();
 }
 
+public class ColorMaster : BaseAuditableEntity
+{
+    public string ColorName { get; set; } = string.Empty;
+    public string? ColorCode { get; set; }
+}
+
 public class FootwearDetail
 {
     public Guid FootwearDetailId { get; set; }

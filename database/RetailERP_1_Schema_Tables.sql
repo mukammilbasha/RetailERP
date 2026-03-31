@@ -913,6 +913,8 @@ CREATE TABLE sales.Clients (
     Zone            NVARCHAR(20)        NULL,
     Email           NVARCHAR(200)       NULL,
     ContactNo       NVARCHAR(20)        NULL,
+    BusinessChannel NVARCHAR(50)        NULL,
+    BusinessModule  NVARCHAR(50)        NULL,
     MarginPercent   DECIMAL(5,2)        NOT NULL DEFAULT 0,
     MarginType      NVARCHAR(20)        NOT NULL DEFAULT 'NET OF TAXES',
     IsActive        BIT                 NOT NULL DEFAULT 1,

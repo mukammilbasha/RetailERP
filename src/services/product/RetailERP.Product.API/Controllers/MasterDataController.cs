@@ -559,6 +559,75 @@ public class GroupsController : ControllerBase
     }
 }
 
+// ── Colors ─────────────────────────────────────────────────────────────
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class ColorsController : ControllerBase
+{
+    private readonly IMasterDataService _service;
+
+    private Guid TenantId => Guid.Parse(User.FindFirst("tenantId")?.Value
+        ?? throw new UnauthorizedAccessException("Tenant not found in token"));
+    private Guid UserId => Guid.Parse(
+        User.FindFirst("sub")?.Value
+        ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? throw new UnauthorizedAccessException());
+
+    public ColorsController(IMasterDataService service) => _service = service;
+
+    [HttpGet]
+    public async Task<ActionResult<ApiResponse<object>>> GetAll(
+        [FromQuery] string? search, [FromQuery] string? searchTerm,
+        [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var result = await _service.GetColorsAsync(TenantId, search ?? searchTerm, ct);
+        var totalCount = result.Count;
+        var paged = result.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        var response = new
+        {
+            items = paged.Select(c => new { colorId = c.ColorId, colorName = c.ColorName, colorCode = c.ColorCode, isActive = c.IsActive }),
+            totalCount
+        };
+        return Ok(ApiResponse<object>.Ok(response));
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> GetById(Guid id, CancellationToken ct)
+    {
+        var result = await _service.GetColorByIdAsync(id, TenantId, ct);
+        return Ok(ApiResponse<object>.Ok(new { colorId = result.ColorId, colorName = result.ColorName, colorCode = result.ColorCode, isActive = result.IsActive }));
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<ApiResponse<object>>> Create(
+        [FromBody] CreateColorRequest request, CancellationToken ct)
+    {
+        var result = await _service.CreateColorAsync(TenantId, request, UserId, ct);
+        var mapped = new { colorId = result.ColorId, colorName = result.ColorName, colorCode = result.ColorCode, isActive = result.IsActive };
+        return CreatedAtAction(nameof(GetById), new { id = result.ColorId },
+            ApiResponse<object>.Ok(mapped, "Color created"));
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> Update(
+        Guid id, [FromBody] CreateColorRequest request, CancellationToken ct)
+    {
+        var result = await _service.UpdateColorAsync(id, TenantId, request, ct);
+        return Ok(ApiResponse<object>.Ok(
+            new { colorId = result.ColorId, colorName = result.ColorName, colorCode = result.ColorCode, isActive = result.IsActive }, "Color updated"));
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<bool>>> Delete(Guid id, CancellationToken ct)
+    {
+        await _service.DeleteColorAsync(id, TenantId, ct);
+        return Ok(ApiResponse<bool>.Ok(true, "Color deleted"));
+    }
+}
+
 // ── Size Charts ─────────────────────────────────────────────────────────────
 
 [ApiController]

@@ -83,9 +83,6 @@ interface CustomerEntry {
 /* ── Constants ── */
 
 const STORE_FORMATS = ["RETAIL MALL", "RETAIL HIGH STREET", "OUTLET"];
-const CHANNELS = ["MBO", "EBO", "ECOM", "DISTRIBUTOR"];
-const MODULES = ["SOR", "OUT RATE"];
-const MARGIN_TYPES = ["NET OF TAXES", "GROSS", "ON MRP"];
 const ZONES = ["NORTH", "SOUTH", "EAST", "WEST", "CENTRAL"];
 
 const INDIAN_STATES = [
@@ -288,15 +285,18 @@ export default function StoresPage() {
     if (val.length >= 2) {
       const code = val.substring(0, 2);
       const stateName = GST_CODE_STATE[code];
+      // Auto-extract PAN from GSTIN (characters 3-12 are PAN)
+      const panFromGstin = val.length >= 12 ? val.substring(2, 12) : "";
       setForm((prev) => ({
         ...prev,
         gstin: val,
         gstStateCode: code,
+        ...(panFromGstin ? { pan: panFromGstin } : {}),
         ...(stateName && !prev.billingState ? { billingState: stateName } : {}),
         ...(stateName && !prev.billingZone ? { billingZone: STATE_ZONE[stateName] || prev.billingZone } : {}),
         ...(stateName && !prev.billingStateCode ? { billingStateCode: code } : {}),
       }));
-      setErrors((prev) => ({ ...prev, gstin: "", gstStateCode: "" }));
+      setErrors((prev) => ({ ...prev, gstin: "", gstStateCode: "", pan: "" }));
     }
   };
 
@@ -306,9 +306,7 @@ export default function StoresPage() {
       setForm((prev) => ({
         ...prev,
         clientId,
-        marginPercent: client.marginPercent ?? prev.marginPercent,
         billingZone: client.zone || prev.billingZone,
-        isActive: client.isActive ?? prev.isActive,
       }));
     } else {
       updateForm("clientId", clientId);
@@ -513,14 +511,8 @@ export default function StoresPage() {
     { key: "billingCity", header: "City" },
     { key: "billingState", header: "State" },
     { key: "billingZone", header: "Zone" },
-    { key: "businessChannel", header: "Channel" },
     { key: "gstin", header: "GSTIN", className: "font-mono text-xs" },
-    {
-      key: "marginPercent",
-      header: "Margin %",
-      className: "text-right",
-      render: (e) => `${e.marginPercent}%`,
-    },
+    { key: "contactName", header: "Primary Contact" },
     {
       key: "isActive",
       header: "Status",
@@ -754,17 +746,18 @@ export default function StoresPage() {
           {/* ── Contact & Tax Details ── */}
           <div>
             <h3 className={sectionTitleClass}>Contact & Tax Details</h3>
+            {/* Primary Contact */}
             <div className="grid grid-cols-4 gap-4">
               <div>
-                <label className={labelClass}>Contact Name</label>
-                <input type="text" value={form.contactName} onChange={(e) => updateForm("contactName", e.target.value)} placeholder="Contact person" className={inputClass} />
+                <label className={labelClass}>Primary Contact Name</label>
+                <input type="text" value={form.contactName} onChange={(e) => updateForm("contactName", e.target.value)} placeholder="Primary contact person" className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Contact No</label>
+                <label className={labelClass}>Primary Contact No</label>
                 <input type="text" value={form.contactNo} onChange={(e) => updateForm("contactNo", e.target.value)} placeholder="9876543210" className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Email</label>
+                <label className={labelClass}>Primary Email</label>
                 <input
                   type="email"
                   value={form.email}
@@ -779,18 +772,19 @@ export default function StoresPage() {
                 <input type="text" value={form.storeManager} onChange={(e) => updateForm("storeManager", e.target.value)} placeholder="Manager name" className={inputClass} />
               </div>
             </div>
+            {/* Secondary Contact */}
             <div className="grid grid-cols-4 gap-4 mt-4">
               <div>
-                <label className={labelClass}>Manager Contact</label>
-                <input type="text" value={form.managerContact} onChange={(e) => updateForm("managerContact", e.target.value)} placeholder="9876543210" className={inputClass} />
+                <label className={labelClass}>Secondary Contact Name</label>
+                <input type="text" value={form.managerContact} onChange={(e) => updateForm("managerContact", e.target.value)} placeholder="Secondary contact person" className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Area Manager</label>
-                <input type="text" value={form.areaManager} onChange={(e) => updateForm("areaManager", e.target.value)} placeholder="Area manager name" className={inputClass} />
+                <label className={labelClass}>Secondary Contact No</label>
+                <input type="text" value={form.areaManager} onChange={(e) => updateForm("areaManager", e.target.value)} placeholder="9876543210" className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>AM Contact</label>
-                <input type="text" value={form.areaContact} onChange={(e) => updateForm("areaContact", e.target.value)} placeholder="9876543210" className={inputClass} />
+                <label className={labelClass}>Secondary Email</label>
+                <input type="email" value={form.areaContact} onChange={(e) => updateForm("areaContact", e.target.value)} placeholder="secondary@company.com" className={inputClass} />
               </div>
               <div className="col-span-1" />
             </div>
@@ -812,72 +806,17 @@ export default function StoresPage() {
                 <input type="text" value={form.gstStateCode} readOnly placeholder="27" className={readOnlyClass} />
               </div>
               <div>
-                <label className={labelClass}>PAN No</label>
+                <label className={labelClass}>PAN No <span className="text-xs text-muted-foreground">(auto from GST)</span></label>
                 <input
                   type="text"
                   value={form.pan}
                   onChange={(e) => updateForm("pan", e.target.value.toUpperCase())}
                   placeholder="AADCB2230M"
-                  className={`${inputClass} font-mono`}
+                  className={`${form.gstin && form.gstin.length >= 12 ? readOnlyClass : `${inputClass} font-mono`}`}
+                  readOnly={!!(form.gstin && form.gstin.length >= 12)}
                   maxLength={10}
                 />
               </div>
-            </div>
-          </div>
-
-          {/* ── Business Configuration ── */}
-          <div>
-            <h3 className={sectionTitleClass}>Business Configuration</h3>
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <label className={labelClass}>Business Channel *</label>
-                <select value={form.businessChannel} onChange={(e) => updateForm("businessChannel", e.target.value)} className={selectClass}>
-                  <option value="">Select channel</option>
-                  {CHANNELS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Business Module *</label>
-                <select value={form.businessModule} onChange={(e) => updateForm("businessModule", e.target.value)} className={selectClass}>
-                  <option value="">Select module</option>
-                  {MODULES.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Margin %</label>
-                <input
-                  type="number"
-                  value={form.marginPercent}
-                  onChange={(e) => updateForm("marginPercent", parseFloat(e.target.value) || 0)}
-                  placeholder="0"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Margin Type</label>
-                <select value={form.marginType} onChange={(e) => updateForm("marginType", e.target.value)} className={selectClass}>
-                  <option value="">Select type</option>
-                  {MARGIN_TYPES.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 mt-4">
-              <button
-                type="button"
-                onClick={() => updateForm("isActive", !form.isActive)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.isActive ? "bg-primary" : "bg-gray-300"}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.isActive ? "translate-x-6" : "translate-x-1"}`}
-                />
-              </button>
-              <span className="text-sm">{form.isActive ? "Active" : "Inactive"}</span>
             </div>
           </div>
 

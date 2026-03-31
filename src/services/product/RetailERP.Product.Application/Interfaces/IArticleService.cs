@@ -71,4 +71,11 @@ public interface IMasterDataService
     Task<MasterDataDto> CreateGroupAsync(Guid tenantId, CreateMasterDataRequest request, Guid createdBy, CancellationToken ct = default);
     Task<MasterDataDto> UpdateGroupAsync(Guid id, Guid tenantId, CreateMasterDataRequest request, CancellationToken ct = default);
     Task DeleteGroupAsync(Guid id, Guid tenantId, CancellationToken ct = default);
+
+    // Colors
+    Task<List<ColorDto>> GetColorsAsync(Guid tenantId, string? search = null, CancellationToken ct = default);
+    Task<ColorDto> GetColorByIdAsync(Guid id, Guid tenantId, CancellationToken ct = default);
+    Task<ColorDto> CreateColorAsync(Guid tenantId, CreateColorRequest request, Guid createdBy, CancellationToken ct = default);
+    Task<ColorDto> UpdateColorAsync(Guid id, Guid tenantId, CreateColorRequest request, CancellationToken ct = default);
+    Task DeleteColorAsync(Guid id, Guid tenantId, CancellationToken ct = default);
 }
